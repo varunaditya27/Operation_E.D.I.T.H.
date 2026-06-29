@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    expose:
+      - "8000"
+    environment:
+      - MACHINE_GUID=7948eaa2-7dfd-417d-8fb4-f8b9e2a930e3
+      - BUILD_EPOCH=1781259200
+      - STATE_KEY=stark_audit_v5
+      - DB_PATH=/app/data/edith.db
+    volumes:
+      - backend-data:/app/data
+    restart: always
+
+  reverse-proxy:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - backend
+    restart: always
+
+volumes:
+  backend-data:

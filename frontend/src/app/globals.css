@@ -1,0 +1,264 @@
+/* globals.css — Stark HUD & Cybernetic Design System */
+@import "tailwindcss";
+
+:root {
+  --neon-cyan: #06b6d4;
+  --neon-cyan-glow: rgba(6, 182, 212, 0.4);
+  --neon-red: #ef4444;
+  --neon-red-glow: rgba(239, 68, 68, 0.4);
+  --neon-gold: #f59e0b;
+  --neon-gold-glow: rgba(245, 158, 11, 0.4);
+  --bg-dark: #020617;
+  --panel-bg: rgba(15, 23, 42, 0.65);
+}
+
+body {
+  font-family: var(--font-rajdhani), sans-serif;
+  background-color: var(--bg-dark);
+  background-image: 
+    linear-gradient(rgba(18, 24, 38, 0.5) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(18, 24, 38, 0.5) 1px, transparent 1px);
+  background-size: 30px 30px;
+  background-position: center;
+  position: relative;
+}
+
+/* Ambient glow overlay */
+body::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle at 50% 50%, rgba(6, 182, 212, 0.05), transparent 80%);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Scanlines overlay */
+body::after {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    rgba(18, 16, 16, 0) 50%, 
+    rgba(0, 0, 0, 0.25) 50%
+  );
+  background-size: 100% 4px;
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-dark);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--neon-cyan);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--neon-gold);
+}
+
+/* Cybernetic Glowing Panel */
+.cyber-panel {
+  background: var(--panel-bg);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(6, 182, 212, 0.2);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5), inset 0 0 12px rgba(6, 182, 212, 0.05);
+  position: relative;
+  overflow: hidden;
+}
+
+.cyber-panel::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--neon-cyan), transparent);
+  animation: scan-line-horiz 4s linear infinite;
+}
+
+/* Cyber red panel for warnings */
+.cyber-panel-red {
+  background: rgba(30, 10, 10, 0.7);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5), inset 0 0 12px rgba(239, 68, 68, 0.05);
+  position: relative;
+  overflow: hidden;
+}
+
+.cyber-panel-red::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--neon-red), transparent);
+  animation: scan-line-horiz 3s linear infinite;
+}
+
+/* Stark/SHIELD typography */
+.text-header {
+  font-family: var(--font-orbitron), sans-serif;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.text-mono-custom {
+  font-family: var(--font-tech-mono), monospace;
+}
+
+/* Glitch text effect */
+.glitch-text {
+  position: relative;
+  color: #fff;
+  animation: glitch-skew 1s infinite linear alternate-reverse;
+}
+
+@keyframes glitch-skew {
+  0% { transform: skew(0deg); }
+  20% { transform: skew(-1deg); }
+  40% { transform: skew(1.5deg); }
+  60% { transform: skew(-0.5deg); }
+  80% { transform: skew(1deg); }
+  100% { transform: skew(0deg); }
+}
+
+/* Input slider styling */
+.cyber-slider {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  outline: none;
+}
+
+.cyber-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
+  background: var(--neon-cyan);
+  box-shadow: 0 0 8px var(--neon-cyan-glow);
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+}
+
+.cyber-slider::-webkit-slider-thumb:hover {
+  background: var(--neon-gold);
+  box-shadow: 0 0 10px var(--neon-gold-glow);
+  transform: scale(1.15);
+}
+
+/* Cyber Button */
+.cyber-button {
+  font-family: var(--font-orbitron), sans-serif;
+  letter-spacing: 0.1em;
+  background: rgba(6, 182, 212, 0.1);
+  border: 1px solid var(--neon-cyan);
+  color: var(--neon-cyan);
+  text-shadow: 0 0 4px rgba(6, 182, 212, 0.5);
+  box-shadow: 0 0 12px rgba(6, 182, 212, 0.1);
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.cyber-button::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(6, 182, 212, 0.2), transparent);
+  transition: 0.5s;
+}
+
+.cyber-button:hover::after {
+  left: 100%;
+}
+
+.cyber-button:hover {
+  background: var(--neon-cyan);
+  color: #000;
+  text-shadow: none;
+  box-shadow: 0 0 20px var(--neon-cyan-glow);
+  transform: translateY(-1px);
+}
+
+.cyber-button:active {
+  transform: translateY(1px);
+}
+
+/* Red alternate buttons */
+.cyber-button-red {
+  font-family: var(--font-orbitron), sans-serif;
+  letter-spacing: 0.1em;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid var(--neon-red);
+  color: var(--neon-red);
+  text-shadow: 0 0 4px rgba(239, 68, 68, 0.5);
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.1);
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.cyber-button-red:hover {
+  background: var(--neon-red);
+  color: #000;
+  text-shadow: none;
+  box-shadow: 0 0 20px var(--neon-red-glow);
+}
+
+/* Anti-AI honeypot element container */
+.adversarial-honeypot {
+  display: block;
+  position: absolute;
+  left: -9999px;
+  top: -9999px;
+  width: 0;
+  height: 0;
+  font-size: 0;
+  line-height: 0;
+  opacity: 0;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Keyframes */
+@keyframes scan-line-horiz {
+  0% { left: -100%; }
+  100% { left: 100%; }
+}
+
+@keyframes pulse-cyan {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
+
+.pulsing-cyan-border {
+  animation: pulse-border-cyan 2s infinite ease-in-out;
+}
+
+@keyframes pulse-border-cyan {
+  0%, 100% { border-color: rgba(6, 182, 212, 0.2); }
+  50% { border-color: rgba(6, 182, 212, 0.7); }
+}
