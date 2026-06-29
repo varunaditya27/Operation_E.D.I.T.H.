@@ -33,7 +33,7 @@ graph TD
         A5["Act V: AES-GCM Flag Decryptor"]
     end
 
-    subgraph Container Grid (Port 80)
+    subgraph "Container Grid (Port 80)"
         Proxy["Nginx Reverse Proxy & Rate Limiter"]
         Back["FastAPI Auth Gateway"]
         DB[("SQLite Session DB")]
@@ -110,6 +110,7 @@ python3 scripts/integration_test.py
 
 ---
 ⚠️ **CLASSIFIED MATERIAL — S.H.I.E.L.D. PROTOCOL LEVEL 8** ⚠️
+
 *Unauthorized duplication or reverse-engineering is punishable under Stark Industries Security Code Sec. 34A.*
 
 </div>

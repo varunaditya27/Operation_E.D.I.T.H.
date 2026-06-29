@@ -51,7 +51,7 @@ Reconstruct the PRGA phase modification inside `stark_rc4_decrypt`:
 - Standard RC4 is modified with an additional step during the key stream generation loop:
   $$j = (j + S[i]) \pmod{256}$$
   $$S[i], S[j] = S[j], S[i]$$
-  $$j = (j \oplus \text{keystream\_byte}) \pmod{256} \quad \text{<-- [MODIFICATION]}$$
+  $$j = (j \oplus \text{keystream-byte}) \pmod{256} \quad \text{<-- [MODIFICATION]}$$
 
 ### 💡 Key Derivation
 Reconstruct the derivation inside `derive_rc4_key`:
