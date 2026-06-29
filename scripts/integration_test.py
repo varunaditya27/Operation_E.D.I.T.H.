@@ -21,8 +21,8 @@ from backend.app.config import (
 )
 from backend.app.crypto import compute_scrp_response, blink_sequence_to_code, generate_blink_sequence
 
-BASE_URL = "http://localhost:8080"
-WS_URL = "ws://localhost:8080"
+BASE_URL = "http://localhost"
+WS_URL = "ws://localhost"
 
 
 def test_act2_scrp_auth():
