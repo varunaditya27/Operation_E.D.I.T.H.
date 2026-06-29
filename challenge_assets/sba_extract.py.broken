@@ -1,0 +1,231 @@
+#!/usr/bin/env python3
+"""
+Stark Binary Archive (SBA) Extraction Utility
+Recovered from: REYES-LAPTOP backup partition
+Status: DAMAGED — several functions are incomplete or corrupted
+
+NOTE TO INVESTIGATOR: This script was found alongside the archive
+file auth_backup.sba. Several functions appear to have been
+deliberately corrupted before the laptop was wiped. You will need
+to repair the broken sections marked with [DAMAGED] before the
+script can successfully extract the archive contents.
+
+SBA Format Reference:
+  - Magic: SBA\\x00 (4 bytes)
+  - Version: uint16 LE (2 bytes)
+  - FileCount: uint16 LE (2 bytes)
+  - TOC Offset: uint64 LE (8 bytes)
+  - TOC entries contain: name_len, name, offset, comp_size, decomp_size, comp_algo, encrypt_flag
+
+Usage: python3 sba_extract.py auth_backup.sba [output_dir]
+"""
+import struct
+import hashlib
+import sys
+import os
+
+
+def parse_header(data: bytes) -> dict:
+    """Parse the 16-byte SBA global header."""
+    if len(data) < 16:
+        raise ValueError("File too small for SBA header")
+
+    magic = data[0:4]
+    if magic != b"SBA\x00":
+        raise ValueError(f"Invalid magic bytes: {magic}")
+
+    version = struct.unpack("<H", data[4:6])[0]
+    file_count = struct.unpack("<H", data[6:8])[0]
+    toc_offset = struct.unpack("<Q", data[8:16])[0]
+
+    return {
+        "version": version,
+        "file_count": file_count,
+        "toc_offset": toc_offset,
+    }
+
+
+def parse_toc(data: bytes, toc_offset: int, file_count: int) -> list:
+    """Parse the Table of Contents entries."""
+    entries = []
+    pos = toc_offset
+
+    for _ in range(file_count):
+        name_len = data[pos]
+        pos += 1
+        name = data[pos:pos + name_len].decode("ascii")
+        pos += name_len
+        file_offset = struct.unpack("<Q", data[pos:pos + 8])[0]
+        pos += 8
+        comp_size = struct.unpack("<Q", data[pos:pos + 8])[0]
+        pos += 8
+        decomp_size = struct.unpack("<Q", data[pos:pos + 8])[0]
+        pos += 8
+        comp_algo = data[pos]
+        pos += 1
+        encrypt_flag = data[pos]
+        pos += 1
+
+        entries.append({
+            "name": name,
+            "offset": file_offset,
+            "comp_size": comp_size,
+            "decomp_size": decomp_size,
+            "comp_algo": comp_algo,
+            "encrypt_flag": encrypt_flag,
+        })
+
+    return entries
+
+
+def rle_decompress(data: bytes) -> bytes:
+    """Custom RLE decompression.
+
+    Protocol:
+      - Escape marker: 0xBC
+      - 0xBC 0x00 → literal 0xBC byte
+      - 0xBC [len] [byte] → repeat [byte] [len] times
+
+    [DAMAGED] — The decompression logic below is incomplete.
+    The escape sequence handling has been zeroed out.
+    You must reconstruct the correct logic.
+    """
+    out = bytearray()
+    i = 0
+    while i < len(data):
+        if data[i] == 0xBC:
+            # ╔══════════════════════════════════════════╗
+            # ║  [DAMAGED SECTION — RECONSTRUCTION       ║
+            # ║   REQUIRED]                              ║
+            # ║                                          ║
+            # ║  Handle escape sequences here:           ║
+            # ║  - If next byte is 0x00: emit literal    ║
+            # ║    0xBC                                  ║
+            # ║  - Otherwise: next byte = repeat count,  ║
+            # ║    byte after = value to repeat          ║
+            # ╚══════════════════════════════════════════╝
+            pass  # TODO: Repair this section
+            i += 1  # This increment is wrong — fix it
+        else:
+            out.append(data[i])
+            i += 1
+    return bytes(out)
+
+
+def stark_rc4_decrypt(data: bytes, key: bytes) -> bytes:
+    """Modified RC4 decryption (Stark variant).
+
+    [DAMAGED] — The PRGA modification step has been removed.
+    Standard RC4 won't work. The modification involves an XOR
+    on the j index during the PRGA phase.
+
+    Hint: The key is derived from MD5 of a hostname found in
+    one of the unencrypted files in the archive.
+    """
+    # KSA (intact)
+    S = list(range(256))
+    j = 0
+    for i in range(256):
+        j = (j + S[i] + key[i % len(key)]) % 256
+        S[i], S[j] = S[j], S[i]
+
+    # PRGA [DAMAGED]
+    i = 0
+    j = 0
+    out = bytearray()
+    for idx in range(len(data)):
+        i = (i + 1) % 256
+        j = (j + S[i]) % 256
+        # ╔══════════════════════════════════════════╗
+        # ║  [DAMAGED SECTION — RECONSTRUCTION       ║
+        # ║   REQUIRED]                              ║
+        # ║                                          ║
+        # ║  The standard RC4 PRGA has been modified ║
+        # ║  with an additional XOR operation on the ║
+        # ║  j index using the key stream.           ║
+        # ║  Reconstruct the modification here.      ║
+        # ╚══════════════════════════════════════════╝
+        S[i], S[j] = S[j], S[i]
+        t = (S[i] + S[j]) % 256
+        out.append(data[idx] ^ S[t])
+    return bytes(out)
+
+
+def derive_rc4_key(hostname: str) -> bytes:
+    """Derive the RC4 encryption key from the build server hostname.
+
+    [DAMAGED] — The key derivation method has been corrupted.
+    It uses a standard hash function on the hostname.
+    The result is truncated to produce the final key bytes.
+    """
+    # ╔══════════════════════════════════════════╗
+    # ║  [DAMAGED SECTION — RECONSTRUCTION       ║
+    # ║   REQUIRED]                              ║
+    # ║                                          ║
+    # ║  Derive the key from the hostname using  ║
+    # ║  a hash function. Return raw bytes.      ║
+    # ╚══════════════════════════════════════════╝
+    return b"\x00" * 16  # Placeholder — this is wrong
+
+
+def extract(sba_path: str, output_dir: str = "extracted"):
+    """Extract all files from an SBA archive."""
+    with open(sba_path, "rb") as f:
+        data = f.read()
+
+    header = parse_header(data)
+    print(f"SBA v{header['version']}, {header['file_count']} files")
+    print(f"TOC at offset: {header['toc_offset']}")
+
+    entries = parse_toc(data, header["toc_offset"], header["file_count"])
+
+    os.makedirs(output_dir, exist_ok=True)
+
+    # First pass: find hostname from unencrypted files
+    hostname = None
+    for entry in entries:
+        if entry["encrypt_flag"] == 0x00 and entry["name"] == "build_server.log":
+            raw = data[entry["offset"]:entry["offset"] + entry["comp_size"]]
+            if entry["comp_algo"] == 0x01:
+                raw = rle_decompress(raw)
+            content = raw.decode("utf-8", errors="replace")
+            for line in content.split("\n"):
+                if "BUILD SERVER:" in line:
+                    hostname = line.split(":")[-1].strip()
+                    print(f"[+] Found hostname: {hostname}")
+                    break
+
+    rc4_key = derive_rc4_key(hostname) if hostname else b"\x00" * 16
+
+    # Second pass: extract all files
+    for entry in entries:
+        print(f"\nExtracting: {entry['name']}")
+        print(f"  Offset: {entry['offset']}, Size: {entry['comp_size']}, "
+              f"Decomp: {entry['decomp_size']}")
+        print(f"  Compression: {entry['comp_algo']}, Encrypted: {entry['encrypt_flag']}")
+
+        raw = data[entry["offset"]:entry["offset"] + entry["comp_size"]]
+
+        # Decrypt if needed
+        if entry["encrypt_flag"] == 0x01:
+            raw = stark_rc4_decrypt(raw, rc4_key)
+
+        # Decompress if needed
+        if entry["comp_algo"] == 0x01:
+            raw = rle_decompress(raw)
+
+        # Write output
+        out_path = os.path.join(output_dir, entry["name"])
+        with open(out_path, "wb") as f:
+            f.write(raw)
+        print(f"  -> Written to {out_path} ({len(raw)} bytes)")
+
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print(f"Usage: {sys.argv[0]} <archive.sba> [output_dir]")
+        sys.exit(1)
+
+    sba_file = sys.argv[1]
+    out_dir = sys.argv[2] if len(sys.argv) > 2 else "extracted"
+    extract(sba_file, out_dir)
