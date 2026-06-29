@@ -448,3 +448,17 @@ async def server_info():
         "status": "FALLBACK MODE",
         "auth_mode": "SCRP v5 + ZKP Director Clearance",
     }
+
+
+# ══════════════════════════════════════════════════════════
+# Serve Next.js Static Export
+# ══════════════════════════════════════════════════════════
+from fastapi.staticfiles import StaticFiles
+
+static_dir = "/app/frontend_dist"
+if not os.path.exists(static_dir):
+    static_dir = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "out")
+
+if os.path.exists(static_dir):
+    app.mount("/", StaticFiles(directory=static_dir, html=True), name="frontend")
+
