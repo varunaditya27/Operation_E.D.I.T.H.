@@ -15,7 +15,6 @@ export default function CalibratePage() {
   const [passed, setPassed] = useState(false);
   const canvasRef = useRef(null);
 
-  // Check authentication
   useEffect(() => {
     const auth = localStorage.getItem('session_token');
     if (!auth) {
@@ -26,7 +25,6 @@ export default function CalibratePage() {
     setSession(auth);
   }, []);
 
-  // Load calibration target
   useEffect(() => {
     if (!session) return;
 
@@ -59,11 +57,11 @@ export default function CalibratePage() {
     const padding = 40;
 
     // Clear
-    ctx.fillStyle = '#1a1a1a';
+    ctx.fillStyle = '#02050c';
     ctx.fillRect(0, 0, w, h);
 
     // Grid
-    ctx.strokeStyle = '#333';
+    ctx.strokeStyle = '#1a3a3a';
     ctx.lineWidth = 0.5;
     for (let i = 0; i <= 10; i++) {
       const x = padding + (i * (w - 2 * padding)) / 10;
@@ -79,8 +77,8 @@ export default function CalibratePage() {
     }
 
     // Axes
-    ctx.strokeStyle = '#666';
-    ctx.lineWidth = 1;
+    ctx.strokeStyle = '#00f0ff';
+    ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(padding, h - padding);
     ctx.lineTo(w - padding, h - padding);
@@ -90,9 +88,9 @@ export default function CalibratePage() {
     ctx.lineTo(padding, h - padding);
     ctx.stroke();
 
-    // Draw target (blue)
-    ctx.strokeStyle = '#0099ff';
-    ctx.lineWidth = 2;
+    // Draw target (cyan)
+    ctx.strokeStyle = '#00f0ff';
+    ctx.lineWidth = 2.5;
     ctx.beginPath();
     let first = true;
     for (const pt of target.target) {
@@ -109,9 +107,9 @@ export default function CalibratePage() {
     }
     ctx.stroke();
 
-    // Draw user wave (green)
-    ctx.strokeStyle = '#00ff00';
-    ctx.lineWidth = 2;
+    // Draw user wave (amber)
+    ctx.strokeStyle = '#ffaa00';
+    ctx.lineWidth = 2.5;
     ctx.beginPath();
     first = true;
     for (let i = 0; i < 300; i++) {
@@ -130,9 +128,9 @@ export default function CalibratePage() {
     }
     ctx.stroke();
 
-    // Labels
-    ctx.fillStyle = '#ccc';
-    ctx.font = '12px monospace';
+    // Legend
+    ctx.fillStyle = '#888888';
+    ctx.font = '11px monospace';
     ctx.fillText('Time →', w - 60, h - 10);
     ctx.fillText('Amplitude ↑', 5, 20);
   }, [target, freq, phase, amp, skew]);
@@ -154,10 +152,10 @@ export default function CalibratePage() {
       const data = await resp.json();
       if (data.pass) {
         setPassed(true);
-        setMessage('Calibration successful! Proceeding to Director authentication...');
+        setMessage('✓ Calibration successful! Proceeding...');
         setTimeout(() => window.location.href = '/director', 3000);
       } else {
-        setMessage(data.message || 'Calibration failed. Adjust parameters and retry.');
+        setMessage('Calibration failed. Adjust parameters and try again.');
       }
     } catch (err) {
       setMessage(`Error: ${err.message}`);
@@ -168,149 +166,115 @@ export default function CalibratePage() {
 
   if (loading) {
     return (
-      <div style={styles.container}>
-        <div style={styles.card}>
-          <h1>Resonance Calibration</h1>
-          <p style={{ textAlign: 'center', color: '#aaa' }}>{message}</p>
+      <div className="min-h-screen bg-gradient-to-br from-[#02050c] via-[#050a15] to-[#02050c] flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-cyan-400/70 text-sm uppercase tracking-widest font-mono">{message}</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div style={styles.container}>
-      <div style={styles.card}>
-        <h1>SHIELD — Resonance Calibration Gate</h1>
-        <p style={{ color: '#888', marginBottom: '20px' }}>
-          Adjust the Reference Wave parameters until your Calibration Wave matches the target (blue line).
-        </p>
+    <div className="min-h-screen bg-gradient-to-br from-[#02050c] via-[#050a15] to-[#02050c] text-white overflow-hidden">
+      {/* Background effects */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-20 right-20 w-96 h-96 bg-cyan-500/5 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-40 left-10 w-80 h-80 bg-amber-500/5 rounded-full blur-3xl"></div>
+      </div>
 
-        <div style={{ marginBottom: '30px' }}>
-          <canvas
-            ref={canvasRef}
-            width={800}
-            height={400}
-            style={{ border: '1px solid #444', width: '100%', maxWidth: '800px' }}
-          />
-          <p style={{ fontSize: '11px', color: '#666', marginTop: '8px' }}>
-            Blue = Reference Wave (target) | Green = Your Calibration Wave
-          </p>
+      <div className="relative z-10 min-h-screen flex items-center justify-center px-4 py-12">
+        <div className="w-full max-w-4xl">
+          {/* Header */}
+          <div className="mb-8 text-center">
+            <h1 className="text-4xl font-black tracking-tight text-white mb-2" style={{ fontFamily: "'Orbitron', sans-serif" }}>
+              Resonance <span className="text-cyan-400">Calibration</span>
+            </h1>
+            <p className="text-sm text-gray-500 font-mono tracking-widest uppercase">
+              Act II.5 — Waveform Alignment Gate
+            </p>
+          </div>
+
+          {/* Main panel */}
+          <div className="backdrop-blur-xl bg-white/5 border border-cyan-500/20 rounded-2xl p-8 mb-8">
+            <p className="text-gray-400 text-sm mb-8 leading-relaxed">
+              Adjust the sliders until your <span className="text-amber-300">calibration wave</span> (amber) matches the <span className="text-cyan-300">reference wave</span> (cyan). The system will accept your tuning when parameters fall within tolerance ranges.
+            </p>
+
+            {/* Canvas */}
+            <div className="mb-8">
+              <canvas
+                ref={canvasRef}
+                width={800}
+                height={400}
+                className="w-full border border-cyan-500/20 rounded-lg bg-black/30"
+              />
+              <p className="text-xs text-gray-500 mt-2 text-center font-mono">
+                Reference (cyan) vs. Your Tuning (amber)
+              </p>
+            </div>
+
+            {/* Sliders */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+              {[
+                { name: 'Frequency', value: freq, setValue: setFreq, min: 0.1, max: 2.0, step: 0.01 },
+                { name: 'Phase', value: phase, setValue: setPhase, min: 0, max: 2 * Math.PI, step: 0.01 },
+                { name: 'Amplitude', value: amp, setValue: setAmp, min: 0.1, max: 1.5, step: 0.01 },
+                { name: 'Skew', value: skew, setValue: setSkew, min: -0.5, max: 0.5, step: 0.01 }
+              ].map(slider => (
+                <div key={slider.name}>
+                  <label className="block text-xs uppercase tracking-widest text-gray-400 mb-3 font-mono">
+                    {slider.name}: <span className="text-cyan-300">{slider.value.toFixed(3)}</span>
+                  </label>
+                  <input
+                    type="range"
+                    min={slider.min}
+                    max={slider.max}
+                    step={slider.step}
+                    value={slider.value}
+                    onChange={(e) => slider.setValue(parseFloat(e.target.value))}
+                    className="w-full h-2 bg-black/30 border border-cyan-500/20 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+                  />
+                </div>
+              ))}
+            </div>
+
+            {/* Feedback */}
+            {message && (
+              <div className={`p-4 rounded-lg mb-8 text-sm font-mono ${
+                passed ? 'bg-green-500/10 border border-green-500/30 text-green-300' :
+                message.includes('failed') ? 'bg-red-500/10 border border-red-500/30 text-red-300' :
+                'bg-cyan-500/10 border border-cyan-500/30 text-cyan-300'
+              }`}>
+                {message}
+              </div>
+            )}
+
+            {/* Submit button */}
+            <button
+              onClick={handleSubmit}
+              disabled={attempting || passed}
+              className="w-full px-6 py-3 bg-gradient-to-r from-cyan-600 to-cyan-500 hover:from-cyan-500 hover:to-cyan-400 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-sm uppercase tracking-widest rounded-lg transition-all duration-300 shadow-lg hover:shadow-cyan-500/20"
+            >
+              {attempting ? 'Verifying...' : passed ? 'Calibration Complete' : 'Submit Calibration'}
+            </button>
+          </div>
+
+          {/* Info cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {[
+              { label: 'Tolerance', desc: 'freq±0.03, phase±0.05, amp±0.03, skew±0.02' },
+              { label: 'Rate Limit', desc: '6 attempts per minute' },
+              { label: 'No Feedback', desc: 'Only pass/fail validation' }
+            ].map((item, i) => (
+              <div key={i} className="backdrop-blur-xl bg-white/5 border border-cyan-500/10 rounded-lg p-4">
+                <p className="text-xs uppercase tracking-widest text-gray-400 mb-1 font-mono">{item.label}</p>
+                <p className="text-sm text-cyan-300 font-mono">{item.desc}</p>
+              </div>
+            ))}
+          </div>
         </div>
-
-        <div style={styles.controls}>
-          <div style={styles.slider}>
-            <label>Frequency: {freq.toFixed(3)}</label>
-            <input
-              type="range"
-              min="0.1"
-              max="2.0"
-              step="0.01"
-              value={freq}
-              onChange={(e) => setFreq(parseFloat(e.target.value))}
-              style={{ width: '100%' }}
-            />
-          </div>
-
-          <div style={styles.slider}>
-            <label>Phase: {phase.toFixed(3)}</label>
-            <input
-              type="range"
-              min="0"
-              max={2 * Math.PI}
-              step="0.01"
-              value={phase}
-              onChange={(e) => setPhase(parseFloat(e.target.value))}
-              style={{ width: '100%' }}
-            />
-          </div>
-
-          <div style={styles.slider}>
-            <label>Amplitude: {amp.toFixed(3)}</label>
-            <input
-              type="range"
-              min="0.1"
-              max="1.5"
-              step="0.01"
-              value={amp}
-              onChange={(e) => setAmp(parseFloat(e.target.value))}
-              style={{ width: '100%' }}
-            />
-          </div>
-
-          <div style={styles.slider}>
-            <label>Skew: {skew.toFixed(3)}</label>
-            <input
-              type="range"
-              min="-0.5"
-              max="0.5"
-              step="0.01"
-              value={skew}
-              onChange={(e) => setSkew(parseFloat(e.target.value))}
-              style={{ width: '100%' }}
-            />
-          </div>
-        </div>
-
-        <button
-          onClick={handleSubmit}
-          disabled={attempting || passed}
-          style={{
-            ...styles.button,
-            opacity: attempting || passed ? 0.5 : 1,
-            cursor: attempting || passed ? 'not-allowed' : 'pointer',
-          }}
-        >
-          {attempting ? 'Verifying...' : passed ? 'Calibration Complete' : 'Submit Calibration'}
-        </button>
-
-        {message && (
-          <p style={{ marginTop: '15px', color: passed ? '#0f0' : '#ff9900', textAlign: 'center' }}>
-            {message}
-          </p>
-        )}
       </div>
     </div>
   );
 }
-
-const styles = {
-  container: {
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    minHeight: '100vh',
-    backgroundColor: '#0a0a0a',
-    padding: '20px',
-  },
-  card: {
-    backgroundColor: '#1a1a1a',
-    border: '1px solid #333',
-    borderRadius: '4px',
-    padding: '30px',
-    maxWidth: '900px',
-    width: '100%',
-    color: '#ccc',
-  },
-  controls: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-    gap: '20px',
-    marginBottom: '20px',
-  },
-  slider: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '8px',
-  },
-  button: {
-    backgroundColor: '#004f99',
-    color: '#fff',
-    padding: '12px 24px',
-    border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer',
-    fontSize: '14px',
-    fontWeight: 'bold',
-    width: '100%',
-  },
-};
