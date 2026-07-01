@@ -152,10 +152,10 @@ async def verify_auth(request: Request):
     challenge_id = body.get("challenge_id", "")
     timestamp = body.get("timestamp", 0)
 
-    # Validate timestamp is within ±10 seconds
+    # Validate timestamp is within ±10 minutes
     now = int(time.time())
-    if abs(now - timestamp) > 10:
-        return JSONResponse(status_code=403, content={"error": "Challenge expired."})
+    if abs(now - timestamp) > 600:
+        return JSONResponse(status_code=403, content={"error": "Challenge expired. Please request a new challenge."})
 
     # Retrieve and consume challenge
     stored = database.get_and_consume_challenge(challenge_id)
@@ -183,7 +183,7 @@ async def verify_auth(request: Request):
 
     # Issue session token
     session_token = f"sess_{secrets.token_hex(12)}"
-    database.create_session(session_token, username, ttl=90)
+    database.create_session(session_token, username, ttl=600)
 
     return {
         "status": "success",
@@ -597,7 +597,7 @@ async def admin_auth_ws(websocket: WebSocket):
         key_material = key_parts
 
         encrypted_flag = crypto.encrypt_flag(
-            config.FLAG_PLAINTEXT,
+            config.FLAG,
             key_material,
             aad=nonce,  # use nonce as AAD
         )

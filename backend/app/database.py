@@ -142,7 +142,7 @@ def get_and_consume_challenge(challenge_id: str) -> dict | None:
     if not row:
         return None
     now = int(time.time())
-    if now - row["created_at"] > 60:  # challenges expire after 60s
+    if now - row["created_at"] > 600:  # challenges expire after 10 minutes (600s)
         return None
     conn.execute("UPDATE challenges SET used = 1 WHERE challenge_id = ?", (challenge_id,))
     conn.commit()

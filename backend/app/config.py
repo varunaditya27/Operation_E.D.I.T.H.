@@ -101,10 +101,10 @@ POW_TIMEOUT_MS = 3000  # 3 seconds per WS round for PoW computation
 
 # ──────────────────────────────────────────────
 # Act V: Flag (SPEC-ACT5-OPSDEPLOY §1.1)
-# Flag is assembled at runtime from ZKP transaction values and encrypted
-# with AES-GCM. It is never stored as a plaintext constant.
+# Flag is loaded from environment at runtime and encrypted with AES-GCM.
+# It is never stored as a plaintext constant in this file.
 # ──────────────────────────────────────────────
-FLAG_PLAINTEXT = "flag{SHIELD_COGNITIVE_AUTHENTICATION_PASSED_77391}"
+FLAG = os.environ.get("FLAG", "flag{SHIELD_COGNITIVE_AUTHENTICATION_PASSED_77391}")
 
 # ──────────────────────────────────────────────
 # Act II: Blink Code Grid (SPEC-ACT2-WEBPORTAL §3.1)
