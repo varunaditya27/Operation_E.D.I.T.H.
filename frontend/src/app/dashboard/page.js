@@ -233,6 +233,24 @@ export default function Dashboard() {
             </div>
           </div>
 
+          {/* Calibration Gate */}
+          <div className="backdrop-blur-xl bg-white/5 border border-cyan-500/20 rounded-xl p-8 mb-8">
+            <h2 className="text-lg font-bold text-cyan-300 mb-4">System Calibration Required</h2>
+            <p className="text-gray-400 text-sm mb-6">
+              Before proceeding to artifact analysis, you must complete a resonance calibration check. This ensures system integrity.
+            </p>
+
+            <button
+              onClick={() => {
+                if (soundEnabled) playTone(500, 0.1, "sine", 0.05);
+                router.push("/calibrate");
+              }}
+              className="w-full md:w-auto px-8 py-3 bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-white font-bold text-sm uppercase tracking-widest rounded-lg transition-all duration-300 shadow-lg hover:shadow-amber-500/20"
+            >
+              ⚙️ Proceed to Calibration
+            </button>
+          </div>
+
           {/* PCAP Section */}
           <div className="backdrop-blur-xl bg-white/5 border border-cyan-500/20 rounded-xl p-8 mb-8">
             <h2 className="text-lg font-bold text-cyan-300 mb-4">Challenge Artifacts</h2>

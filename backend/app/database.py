@@ -75,6 +75,15 @@ def init_db():
     """)
     conn.commit()
 
+    # Add migration: ensure calibrated and calibrate_attempts columns exist
+    try:
+        conn.execute("SELECT calibrated FROM auth_sessions LIMIT 1")
+    except:
+        # Column doesn't exist, add it
+        conn.execute("ALTER TABLE auth_sessions ADD COLUMN calibrated BOOLEAN DEFAULT 0")
+        conn.execute("ALTER TABLE auth_sessions ADD COLUMN calibrate_attempts INTEGER DEFAULT 0")
+        conn.commit()
+
 
 # ──────────────────────────────────────────
 # Nonce Management (Acts II/IV)

@@ -188,6 +188,31 @@ def blink_sequence_to_code(seq: list[str]) -> str:
     return code
 
 
+def derive_flash_sequence_from_nonce(nonce: str) -> list[str]:
+    """Derive a 4-color flash sequence from nonce (Act IV transcription gate).
+    Completely nonce-based (no time dependency) to avoid race conditions.
+    Returns 4 colors = 2 pairs = 2 hex digits (for director flash code).
+    """
+    from . import config
+    h = hashlib.sha256(nonce.encode()).digest()
+    seq = []
+    for i in range(4):  # 4 colors for 2 hex pairs
+        seq.append(config.BLINK_COLORS[h[i] % len(config.BLINK_COLORS)])
+    return seq
+
+
+def flash_sequence_to_code(seq: list[str]) -> str:
+    """Convert a 4-color flash sequence (2 pairs) into a 2-hex code via the grid."""
+    from . import config
+    code = ""
+    for i in range(0, min(4, len(seq)), 2):
+        if i + 1 < len(seq):
+            pair = (seq[i], seq[i + 1])
+            if pair in config.BLINK_GRID:
+                code += config.BLINK_GRID[pair]
+    return code
+
+
 # ═══════════════════════════════════════════
 # Fiat-Shamir ZKP Verification (SPEC-ACT4-ZKPWS §1.2)
 # ═══════════════════════════════════════════

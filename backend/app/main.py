@@ -337,9 +337,9 @@ async def session_init(request: Request):
     nonce = secrets.token_hex(8)
     database.create_nonce(nonce, ttl=300)  # 5 minute window
 
-    # Derive flash sequence from nonce
-    flash_seq = crypto.generate_blink_sequence(int(time.time()), nonce)
-    flash_code = crypto.blink_sequence_to_code(flash_seq)
+    # Derive flash sequence from nonce (nonce-based, not time-based)
+    flash_seq = crypto.derive_flash_sequence_from_nonce(nonce)
+    flash_code = crypto.flash_sequence_to_code(flash_seq)
 
     return {
         "status": "ready",
@@ -464,9 +464,9 @@ async def admin_auth_ws(websocket: WebSocket):
         await websocket.close(code=4003, reason="Flash code transcription required")
         return
 
-    # Verify the flash_code matches what we expect for this nonce
-    expected_seq = crypto.generate_blink_sequence(int(time.time()), nonce)
-    expected_code = crypto.blink_sequence_to_code(expected_seq)
+    # Verify the flash_code matches what we expect for this nonce (nonce-based, not time-based)
+    expected_seq = crypto.derive_flash_sequence_from_nonce(nonce)
+    expected_code = crypto.flash_sequence_to_code(expected_seq)
 
     if flash_code_input != expected_code:
         await websocket.close(code=4003, reason="Flash code verification failed")
@@ -618,9 +618,6 @@ async def admin_auth_ws(websocket: WebSocket):
                 "Don't expect a quiet six weeks next time either."
             ),
             "encrypted_flag": encrypted_flag,
-            "key_material_hint": (
-                "K_flag = SHA256(concat(hex(s_i) for i in range(k)) + hex(y_live) + str(pow_nonce))"
-            ),
         }
 
         await websocket.send_json(directors_log)

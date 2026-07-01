@@ -104,6 +104,7 @@ POW_TIMEOUT_MS = 3000  # 3 seconds per WS round for PoW computation
 # Flag is assembled at runtime from ZKP transaction values and encrypted
 # with AES-GCM. It is never stored as a plaintext constant.
 # ──────────────────────────────────────────────
+FLAG_PLAINTEXT = "flag{SHIELD_COGNITIVE_AUTHENTICATION_PASSED_77391}"
 
 # ──────────────────────────────────────────────
 # Act II: Blink Code Grid (SPEC-ACT2-WEBPORTAL §3.1)
