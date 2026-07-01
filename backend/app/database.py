@@ -46,7 +46,9 @@ def init_db():
             created_at INTEGER NOT NULL,
             expires_at INTEGER NOT NULL,
             dashboard_accessed BOOLEAN DEFAULT 0,
-            pcap_released BOOLEAN DEFAULT 0
+            pcap_released BOOLEAN DEFAULT 0,
+            calibrated BOOLEAN DEFAULT 0,
+            calibrate_attempts INTEGER DEFAULT 0
         );
 
         CREATE TABLE IF NOT EXISTS challenges (
@@ -218,3 +220,37 @@ def check_rate_limit(ip: str, max_requests: int = 12, window: int = 60, block: i
         )
     conn.commit()
     return True
+
+
+# ──────────────────────────────────────────
+# Calibration (Act II.5)
+# ──────────────────────────────────────────
+
+def mark_calibrated(session_token: str):
+    """Mark that a session has passed the resonance calibration gate."""
+    conn = _get_conn()
+    conn.execute(
+        "UPDATE auth_sessions SET calibrated = 1 WHERE session_token = ?",
+        (session_token,)
+    )
+    conn.commit()
+
+
+def is_calibrated(session_token: str) -> bool:
+    """Check if a session has passed calibration."""
+    conn = _get_conn()
+    row = conn.execute(
+        "SELECT calibrated FROM auth_sessions WHERE session_token = ?",
+        (session_token,)
+    ).fetchone()
+    return bool(row and row["calibrated"])
+
+
+def increment_calibrate_attempts(session_token: str):
+    """Increment calibration attempt counter for rate limiting."""
+    conn = _get_conn()
+    conn.execute(
+        "UPDATE auth_sessions SET calibrate_attempts = calibrate_attempts + 1 WHERE session_token = ?",
+        (session_token,)
+    )
+    conn.commit()

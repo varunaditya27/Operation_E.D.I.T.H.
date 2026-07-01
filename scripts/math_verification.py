@@ -33,15 +33,15 @@ def stark_rc4(data: bytes, key: bytes) -> bytes:
 
 def verify_act0():
     print("[Act 0] Verifying Stark-RC4 Encryption...")
-    hostname = "edith-build-04.stark.internal"
-    rc4_key = hashlib.md5(hostname.encode()).hexdigest()[:16].encode()
+    hostname = "localhost.localdomain"
+    rc4_key = hashlib.md5(hostname.encode()).digest()
     
     plaintext = b"STARK_PROJECT_EDITH_FALLBACK_ACTIVE"
     ciphertext = stark_rc4(plaintext, rc4_key)
     decrypted = stark_rc4(ciphertext, rc4_key)
     
     assert plaintext == decrypted, "Act 0 RC4 decryption failed consistency check!"
-    print(f"  [+] Key: {rc4_key.decode()}")
+    print(f"  [+] Key: {binascii.hexlify(rc4_key).decode()}")
     print(f"  [+] Ciphertext (Hex): {binascii.hexlify(ciphertext).decode()}")
     print("  [+] Decryption check passed.")
 
@@ -111,7 +111,7 @@ def verify_act3():
     host_key = "STARK-FALLBACK-KEY-2026"
     build_epoch = 1781259200
     
-    seed = binascii.crc32((netbios_id + host_key).encode()) ^ build_epoch
+    seed = binascii.crc32((netbios_id + host_key).encode()) ^ (build_epoch + 142)
     
     # Generate private exponent 'b'
     lcg_outs, _ = get_lcg_sequence(seed, 2)

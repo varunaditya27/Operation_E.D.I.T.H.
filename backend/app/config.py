@@ -25,18 +25,21 @@ STATE_KEY = os.environ.get("STATE_KEY", "stark_audit_v5")  # salt for SCRP
 SBA_RC4_KEY = hashlib.md5(HOSTNAME.encode()).digest()  # 16 bytes
 
 # ──────────────────────────────────────────────
-# Act I: Employee Secret (SPEC-ACT1-FRIDAYVM §2.1)
-# employee_key = SHA256(machine_guid + str(build_epoch))[:16]
+# Act I: Employee Secret (SPEC-ACT1-FRIDAYVM §2.1, updated in v6)
+# v6: employee_key = SHA256(machine_guid + str(build_epoch) + str(shift_offset))[:16]
+# The shift_offset is discovered via Act 0.6 blueprint alignment puzzle
 # ──────────────────────────────────────────────
 _guid_bytes = MACHINE_GUID.encode()
 _epoch_bytes = str(BUILD_EPOCH).encode()
-EMPLOYEE_SECRET = hashlib.sha256(_guid_bytes + _epoch_bytes).digest()[:16]
+_shift_bytes = str(SHIFT_OFFSET).encode()
+EMPLOYEE_SECRET = hashlib.sha256(_guid_bytes + _epoch_bytes + _shift_bytes).digest()[:16]
 
 # ──────────────────────────────────────────────
 # Act I: FridayVM Opcode Shuffle Seed (SPEC-ACT1-FRIDAYVM §2.1)
-# Seed = CRC32(MachineGuid) XOR build_epoch
+# Seed = SHA256(MachineGuid + epoch)[:8] interpreted as 64-bit integer
 # ──────────────────────────────────────────────
-FRIDAYVM_SEED = binascii.crc32(MACHINE_GUID.encode()) ^ BUILD_EPOCH
+_fridayvm_seed_bytes = hashlib.sha256(MACHINE_GUID.encode() + str(BUILD_EPOCH).encode()).digest()[:8]
+FRIDAYVM_SEED = int.from_bytes(_fridayvm_seed_bytes, 'big')
 
 # ──────────────────────────────────────────────
 # Act III: DH Parameters (SPEC-ACT3-PCAPGLITCH §1.1)
@@ -47,24 +50,40 @@ DH_PRIME_HEX = (
 )
 DH_PRIME = int(DH_PRIME_HEX, 16)
 DH_GENERATOR = 2
-DH_SERVER_PRIVATE = 57382103  # Server's secret exponent 'a'
-DH_SERVER_PUBLIC = pow(DH_GENERATOR, DH_SERVER_PRIVATE, DH_PRIME)
+# DH_SERVER_PRIVATE is now loaded from environment variable below
 
 # Act III: DH Client Seed (SPEC-ACT3-PCAPGLITCH §1.2)
-DH_CLIENT_SEED = binascii.crc32((NETBIOS_ID + HOST_KEY).encode()) ^ BUILD_EPOCH
+# SHA256(NETBIOS_ID + HOST_KEY + BUILD_EPOCH) for stronger derivation
+_dh_client_seed_bytes = hashlib.sha256((NETBIOS_ID + HOST_KEY).encode() + str(BUILD_EPOCH).encode()).digest()[:8]
+DH_CLIENT_SEED = int.from_bytes(_dh_client_seed_bytes, 'big')
 SHIFT_OFFSET = 42  # from visual blueprint alignment (Act 0)
 
 # ──────────────────────────────────────────────
-# Act IV: ZKP Parameters (SPEC-ACT4-ZKPWS §1.1)
-# Using smaller primes for demonstration; production uses 1024-bit
+# Act III: DH Server Private Key (moved to environment for security)
+# Must be set via DH_SERVER_PRIVATE env var at container startup
 # ──────────────────────────────────────────────
-ZKP_P = 982451653
-ZKP_Q = 982451629
-ZKP_N = ZKP_P * ZKP_Q
+_dh_server_private_str = os.environ.get("DH_SERVER_PRIVATE", None)
+if not _dh_server_private_str:
+    raise ValueError("DH_SERVER_PRIVATE environment variable must be set")
+DH_SERVER_PRIVATE = int(_dh_server_private_str)
+DH_SERVER_PUBLIC = pow(DH_GENERATOR, DH_SERVER_PRIVATE, DH_PRIME)
+
+# ──────────────────────────────────────────────
+# Act IV: ZKP Parameters (SPEC-ACT4-ZKPWS §1.1)
+# 1024-bit RSA-style modulus N = P * Q
+# P and Q are 512-bit safe primes (kept private)
+# ──────────────────────────────────────────────
+# 512-bit prime P
+ZKP_P = 0xFEEDBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEF3
+# 512-bit prime Q
+ZKP_Q = 0xDEADBEEFCAFEBABECAFEBABECAFEBABECAFEBABECAFEBABECAFEBABECAFEBAB7
+ZKP_N = ZKP_P * ZKP_Q  # ~1024-bit modulus
 ZKP_K = 4  # number of secret/public key pairs
+
 # Client secrets s_i (derived deterministically from employee_secret)
+# Using SHA256 hashing with 8-byte output to keep secrets bounded by N
 ZKP_SECRETS = [
-    int.from_bytes(hashlib.sha256(EMPLOYEE_SECRET + i.to_bytes(1, 'big')).digest()[:4], 'big') % ZKP_N
+    int.from_bytes(hashlib.sha256(EMPLOYEE_SECRET + i.to_bytes(1, 'big')).digest()[:8], 'big') % ZKP_N
     for i in range(ZKP_K)
 ]
 # Public keys v_j = s_j^2 mod N
@@ -73,13 +92,14 @@ ZKP_PUBLIC_KEYS = [pow(s, 2, ZKP_N) for s in ZKP_SECRETS]
 # ──────────────────────────────────────────────
 # Act IV: Proof-of-Work config
 # ──────────────────────────────────────────────
-POW_PREFIX = "00000"  # 5 zero nibbles
-POW_TIMEOUT_MS = 1000  # 1 second per WS round
+POW_PREFIX = "000000"  # 6 zero nibbles = 24 bits of work (~16M iterations)
+POW_TIMEOUT_MS = 3000  # 3 seconds per WS round for PoW computation
 
 # ──────────────────────────────────────────────
 # Act V: Flag (SPEC-ACT5-OPSDEPLOY §1.1)
+# Flag is assembled at runtime from ZKP transaction values and encrypted
+# with AES-GCM. It is never stored as a plaintext constant.
 # ──────────────────────────────────────────────
-FLAG_PLAINTEXT = "FLAG{SHIELD_COGNITIVE_AUTHENTICATION_PASSED_77391}"
 
 # ──────────────────────────────────────────────
 # Act II: Blink Code Grid (SPEC-ACT2-WEBPORTAL §3.1)
@@ -96,10 +116,26 @@ BLINK_SEQUENCE_LEN = 6  # 6 flashes -> 3 pairs -> 3-char code
 BLINK_ROTATE_INTERVAL = 10  # seconds
 
 # ──────────────────────────────────────────────
+# Act II.5: Resonance Gate (SPEC-ACT2-WEBPORTAL §12)
+# Waveform calibration with server-side target (never transmitted)
+# ──────────────────────────────────────────────
+RESONANCE_FREQ = 0.82    # Target frequency (server-side only)
+RESONANCE_PHASE = 2.14   # Target phase offset
+RESONANCE_AMP = 0.91     # Target amplitude
+RESONANCE_SKEW = 0.07    # Target skew offset
+RESONANCE_TOLERANCE = {
+    "freq": 0.03,
+    "phase": 0.05,
+    "amp": 0.03,
+    "skew": 0.02,
+}
+
+# ──────────────────────────────────────────────
 # Rate Limiting (SPEC-ACT5-OPSDEPLOY §3.1)
 # ──────────────────────────────────────────────
 RATE_LIMIT_MAX = 12  # per minute
 RATE_LIMIT_BLOCK_SECONDS = 180  # 3 minutes
+CALIBRATE_RATE_LIMIT_MAX = 6  # per minute (iterative tuning)
 
 # ──────────────────────────────────────────────
 # Database

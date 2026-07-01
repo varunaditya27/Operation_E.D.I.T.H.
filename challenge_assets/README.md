@@ -20,8 +20,12 @@ A custom-format encrypted archive holding fallback system utilities.
 - **Compression**: Custom Run-Length Encoding (RLE).
 - **Encryption**: Modified RC4 (Stark variant) keyed by a build server hostname.
 - **Contents**:
-  - `build_server.log`: Unencrypted log showing compilation build environments.
-  - `friday_app.bin`: Stark FridayVM binary bytecode implementing the TuesdayVM passcode verification loop.
+  - `build_server.log`: Unencrypted compilation agent output.
+  - `syslog.log`: Unencrypted NTP and system daemon log containing clock drift warnings.
+  - `StarkEmployeePortal.exe`: Encrypted PE file containing the FridayVM passcode verification engine.
+  - `README.txt`: Encrypted notice containing administrative directions.
+  - `shield_blueprint_alpha.png`: Visual overlay layer for HUD key extraction.
+  - `shield_blueprint_beta.png`: Visual overlay layer for HUD key extraction.
 
 ### 2. `sba_extract.py.broken` (Damaged Extraction Script)
 The original extraction python tool found on the laptop, which has been intentionally defaced/corrupted. To run extraction, you must repair three damaged sections:

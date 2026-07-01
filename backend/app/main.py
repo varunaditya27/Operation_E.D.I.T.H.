@@ -14,6 +14,7 @@ import time
 import secrets
 import hashlib
 import os
+import numpy as np
 
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.responses import JSONResponse, FileResponse
@@ -52,9 +53,10 @@ async def startup():
 # ══════════════════════════════════════════════════════════
 
 def _get_client_ip(request: Request) -> str:
-    forwarded = request.headers.get("x-forwarded-for")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
+    # Use X-Real-IP (set by nginx real_ip directives), fall back to direct socket IP
+    real_ip = request.headers.get("x-real-ip")
+    if real_ip:
+        return real_ip.strip()
     return request.client.host if request.client else "unknown"
 
 
@@ -191,6 +193,135 @@ async def employee_dashboard(request: Request):
 
 
 # ══════════════════════════════════════════════════════════
+# Act II.5: Resonance Gate / Calibration (SPEC-ACT2-WEBPORTAL §12)
+# ══════════════════════════════════════════════════════════
+
+@app.get("/api/v1/calibrate/target")
+async def calibrate_target(request: Request):
+    """Return pre-sampled coordinate pairs for the Reference Wave (target).
+    Target values (freq, phase, amp, skew) are NEVER transmitted — only coordinates.
+    Requires valid Act II session token.
+    """
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("Bearer "):
+        return JSONResponse(status_code=403, content={"error": "Unauthorized SHIELD personnel."})
+
+    token = auth[7:]
+    session = database.validate_session(token)
+    if not session:
+        return JSONResponse(status_code=403, content={"error": "Session expired or invalid."})
+
+    # Generate 300 pre-sampled points for the target waveform
+    # Using only the published parameters (never expose freq/phase/amp/skew numerically)
+    points = []
+    x_vals = np.linspace(0, 2 * np.pi, 300)
+    for x in x_vals:
+        y = (config.RESONANCE_AMP *
+             np.sin(config.RESONANCE_FREQ * x + config.RESONANCE_PHASE) +
+             config.RESONANCE_SKEW)
+        points.append({"x": float(x), "y": float(y)})
+
+    return {
+        "target": points,
+        "canvas_width": 800,
+        "canvas_height": 400,
+        "x_range": [0, 2 * np.pi],
+        "y_range": [-1.5, 1.5],
+    }
+
+
+@app.post("/api/v1/calibrate/submit")
+async def calibrate_submit(request: Request):
+    """Accept user's tuned (freq, phase, amp, skew) and verify against target.
+    Returns ONLY pass/fail — NO gradient, NO distance, NO direction hint.
+    Rate-limited to 6 attempts per minute per session.
+    """
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("Bearer "):
+        return JSONResponse(status_code=403, content={"error": "Unauthorized SHIELD personnel."})
+
+    token = auth[7:]
+    session = database.validate_session(token)
+    if not session:
+        return JSONResponse(status_code=403, content={"error": "Session expired or invalid."})
+
+    # Rate limiting: 6 attempts per minute
+    attempts = session.get("calibrate_attempts", 0)
+    if attempts >= config.CALIBRATE_RATE_LIMIT_MAX:
+        return JSONResponse(
+            status_code=429,
+            content={"error": "Calibration attempt limit exceeded. Try again in 1 minute."}
+        )
+
+    body = await request.json()
+    user_freq = body.get("freq", None)
+    user_phase = body.get("phase", None)
+    user_amp = body.get("amp", None)
+    user_skew = body.get("skew", None)
+
+    if None in [user_freq, user_phase, user_amp, user_skew]:
+        return JSONResponse(status_code=400, content={"error": "Missing calibration parameters"})
+
+    # Increment attempt counter
+    database.increment_calibrate_attempts(token)
+
+    # Check tolerance (binary pass/fail only)
+    freq_pass = abs(user_freq - config.RESONANCE_FREQ) <= config.RESONANCE_TOLERANCE["freq"]
+    phase_pass = abs(user_phase - config.RESONANCE_PHASE) <= config.RESONANCE_TOLERANCE["phase"]
+    amp_pass = abs(user_amp - config.RESONANCE_AMP) <= config.RESONANCE_TOLERANCE["amp"]
+    skew_pass = abs(user_skew - config.RESONANCE_SKEW) <= config.RESONANCE_TOLERANCE["skew"]
+
+    passed = freq_pass and phase_pass and amp_pass and skew_pass
+
+    if passed:
+        database.mark_calibrated(token)
+        return {"pass": True, "message": "Resonance calibration successful. Proceed to Director authentication."}
+    else:
+        return {"pass": False, "message": "Calibration parameters do not match. Adjust and try again."}
+
+
+@app.post("/api/v1/session/init")
+async def session_init(request: Request):
+    """Initialize Director-tier session.
+    Requires:
+    1. Valid Act II session token
+    2. Calibration gate passed (calibrated=1)
+    Returns nonce for Act IV WebSocket challenge + flash_sequence_token.
+    """
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("Bearer "):
+        return JSONResponse(status_code=403, content={"error": "Unauthorized SHIELD personnel."})
+
+    token = auth[7:]
+    session = database.validate_session(token)
+    if not session:
+        return JSONResponse(status_code=403, content={"error": "Session expired or invalid."})
+
+    # Check calibration gate
+    if not database.is_calibrated(token):
+        return JSONResponse(
+            status_code=403,
+            content={"error": "Live calibration required. — SHIELD"}
+        )
+
+    # Issue nonce for Act IV
+    nonce = secrets.token_hex(8)
+    database.create_nonce(nonce, ttl=300)  # 5 minute window
+
+    # Derive flash sequence from nonce
+    flash_seq = crypto.generate_blink_sequence(int(time.time()), nonce)
+    flash_code = crypto.blink_sequence_to_code(flash_seq)
+
+    return {
+        "status": "ready",
+        "nonce": nonce,
+        "flash_sequence": flash_seq,  # 5-color sequence for visual display
+        "flash_code": flash_code,
+        "message": "Director authentication window now open. 5 minute limit.",
+    }
+
+
+# ══════════════════════════════════════════════════════════
 # Act II: Admin Dashboard (false summit — 403)
 # ══════════════════════════════════════════════════════════
 
@@ -293,9 +424,6 @@ async def admin_auth_ws(websocket: WebSocket):
             "event": "server_init",
             "nonce": nonce,
             "captcha_image": captcha_image,
-            # NOTE: In production deployment, captcha_debug is stripped by the
-            # nginx reverse proxy. It is included here for integration testing.
-            "captcha_debug": captcha_text,
             "zkp_params": {
                 "N": hex(config.ZKP_N),
                 "v": [hex(v) for v in config.ZKP_PUBLIC_KEYS],

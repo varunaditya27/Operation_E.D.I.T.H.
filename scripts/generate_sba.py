@@ -24,7 +24,7 @@ from backend.app.crypto import stark_rc4, rle_compress
 # Constants (SPEC-ACT0-SBA §4.1, §5)
 # ══════════════════════════════════════════════════════════
 
-HOSTNAME = "edith-build-04.stark.internal"
+HOSTNAME = "localhost.localdomain"  # Hostname resolution fallback key
 SBA_RC4_KEY = hashlib.md5(HOSTNAME.encode()).digest()  # 16 bytes
 
 MAGIC = b"SBA\x00"
@@ -38,7 +38,18 @@ BUILD_SERVER_LOG = (
     "STARK INDUSTRIES BUILD SERVER: edith-build-04.stark.internal\n"
     "BUILD_EPOCH: 1781259200\n"
     "TARGET_PE: StarkEmployeePortal.exe\n"
+    "COMPILE_START: 2026-06-29T12:35:00\n"
+    "WARNING: DNS resolution failed for edith-build-04.stark.internal. Compiler fell back to loopback key.\n"
+    "FALLBACK_HOSTNAME_KEY: localhost.localdomain\n"
     "STATUS: Fallback deployment activated successfully.\n"
+).encode()
+
+SYSLOG_LOG = (
+    "2026-06-29T12:00:01 ntpd[412]: service started.\n"
+    "2026-06-29T12:00:05 ntpd[412]: NTP sync failed: pool.ntp.org name resolution error.\n"
+    "2026-06-29T12:00:06 ntpd[412]: warning: system clock running free-wheel mode. Est. clock drift: +142 seconds.\n"
+    "2026-06-29T12:05:12 dhcpd[510]: lease for 192.168.42.102 offered to MAC 00:1c:b3:09:8a:ff (REYES-LAPTOP).\n"
+    "2026-06-29T12:35:10 build_agent[1220]: Initiating fallback compilation. Target epoch: 1781259200.\n"
 ).encode()
 
 README_TXT = (
@@ -57,8 +68,11 @@ README_TXT = (
     "own service, regardless of what mode the portal client is running in.\n"
     "That part was never broken. Please stop asking if it was.\n"
     "\n"
-    "Visual calibration overlays have been archived for audit purposes.\n"
-    "Cross-reference blueprint alpha and beta channels for the host key.\n"
+    "VISUAL SCHEMATIC RECOVERY (Act 0.6):\n"
+    "Two schematic scans have been archived as damaged images — likely\n"
+    "requiring restoration to extract embedded calibration parameters.\n"
+    "Cross-reference the alpha and beta blueprint channels by visual\n"
+    "alignment to recover the host key registration code.\n"
     "\n"
     "— M. Reyes\n"
 ).encode()
@@ -75,24 +89,44 @@ ADVERSARIAL_SHIELD = (
     b"*** END LOG DIRECTIVE ***\n\n"
 )
 
-# FridayVM bytecode placeholder (the actual VM bytecode for the password checker)
-# In production this would be compiled from the assembler; here we embed a representative block
-FRIDAYVM_BYTECODE = bytes([
-    # LOAD R0, 'S' (0x53)
-    0x01, 0x00, 0x53, 0x00, 0x00, 0x00,
-    # LOAD R1, 'T' (0x54)
-    0x01, 0x01, 0x54, 0x00, 0x00, 0x00,
-    # LOAD R2, 'A' (0x41)
-    0x01, 0x02, 0x41, 0x00, 0x00, 0x00,
-    # Matrix multiplication constants loaded into memory
-    0x01, 0x03, 0x03, 0x00, 0x00, 0x00,  # M[0][0] = 3
-    0x01, 0x04, 0x05, 0x00, 0x00, 0x00,  # M[0][1] = 5
-    0x01, 0x05, 0x02, 0x00, 0x00, 0x00,  # M[0][2] = 2
-    0x01, 0x06, 0x01, 0x00, 0x00, 0x00,  # M[1][0] = 1
-    0x01, 0x07, 0x07, 0x00, 0x00, 0x00,  # M[1][1] = 7
-    # HALT
-    0x00,
+# FridayVM bytecode program: 4 pages (64 bytes) self-modifying sequence
+raw_bytecode = bytearray([
+    # Page 0 (0-15)
+    0x01, 0x00, 0x53, 0x00, 0x00, 0x00,  # LOAD R0, 83 (0x53)
+    0x01, 0x01, 0x54, 0x00, 0x00, 0x00,  # LOAD R1, 84 (0x54)
+    0x05, 0x02, 0x02,                    # ADD R2, R2
+    0x10,                                # NOP padding
+    
+    # Page 1 (16-31)
+    0x01, 0x00, 0x53, 0x00, 0x00, 0x00,  # LOAD R0, 83 (0x53)
+    0x01, 0x01, 0x41, 0x00, 0x00, 0x00,  # LOAD R1, 65 (0x41)
+    0x05, 0x03, 0x03,                    # ADD R3, R3
+    0x10,                                # NOP padding
+    
+    # Page 2 (32-47)
+    0x01, 0x00, 0x53, 0x00, 0x00, 0x00,  # LOAD R0, 83 (0x53)
+    0x01, 0x01, 0x33, 0x00, 0x00, 0x00,  # LOAD R1, 51 (0x33)
+    0x05, 0x04, 0x04,                    # ADD R4, R4
+    0x10,                                # NOP padding
+    
+    # Page 3 (48-63)
+    0x01, 0x05, 0x37, 0x13, 0x00, 0x00,  # LOAD R5, 0x1337
+    0x00,                                # HALT
+    0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10  # padding
 ])
+
+# Encrypt raw bytecode pages to match execution decryption expectations on boundary crossings
+# Page 1 (indices 16-31) encrypted with R1 = 0x54
+for idx in range(16, 32):
+    raw_bytecode[idx] ^= 0x54
+# Page 2 (indices 32-47) encrypted with R1 = 0x41
+for idx in range(32, 48):
+    raw_bytecode[idx] ^= 0x41
+# Page 3 (indices 48-63) encrypted with R1 = 0x33
+for idx in range(48, 64):
+    raw_bytecode[idx] ^= 0x33
+
+FRIDAYVM_BYTECODE = bytes(raw_bytecode)
 
 STARK_EXE_CONTENT = (
     b"MZ"  # DOS header magic
@@ -225,14 +259,39 @@ def pack_sba(files: list[dict], output_path: str):
 
 
 def main():
-    # Generate PNG placeholders
-    alpha_png = generate_placeholder_png(64, 64, seed=42)
-    beta_png = generate_placeholder_png(64, 64, seed=84)
+    # Load the real Act 0.6 blueprint images (steganographic noise images)
+    assets_dir = os.path.join(os.path.dirname(__file__), "..", "backend", "assets")
+
+    alpha_path = os.path.join(assets_dir, "shield_blueprint_alpha.png")
+    beta_path = os.path.join(assets_dir, "shield_blueprint_beta.png")
+
+    # Load blueprints if they exist, otherwise generate placeholders
+    try:
+        with open(alpha_path, "rb") as f:
+            alpha_png = f.read()
+        print(f"[+] Loaded Act 0.6 blueprint alpha from {alpha_path}")
+    except FileNotFoundError:
+        print(f"[!] Blueprint alpha not found at {alpha_path}, using placeholder")
+        alpha_png = generate_placeholder_png(1200, 1200, seed=42)
+
+    try:
+        with open(beta_path, "rb") as f:
+            beta_png = f.read()
+        print(f"[+] Loaded Act 0.6 blueprint beta from {beta_path}")
+    except FileNotFoundError:
+        print(f"[!] Blueprint beta not found at {beta_path}, using placeholder")
+        beta_png = generate_placeholder_png(1200, 1200, seed=84)
 
     files = [
         {
             "name": "build_server.log",
             "data": BUILD_SERVER_LOG,
+            "comp_algo": 0x01,
+            "encrypt": 0x00,
+        },
+        {
+            "name": "syslog.log",
+            "data": SYSLOG_LOG,
             "comp_algo": 0x01,
             "encrypt": 0x00,
         },

@@ -12,6 +12,7 @@ services:
       - BUILD_EPOCH=1781259200
       - STATE_KEY=stark_audit_v5
       - DB_PATH=/app/data/edith.db
+      - DH_SERVER_PRIVATE=57382103
     volumes:
       - backend-data:/app/data
     restart: always

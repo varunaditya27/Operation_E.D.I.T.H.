@@ -108,14 +108,15 @@ def rle_decompress(data: bytes) -> bytes:
 
 # ═══════════════════════════════════════════
 # LCG and Opcode Shuffle (SPEC-ACT1-FRIDAYVM §2.2)
+# Non-standard 64-bit LCG (PCG64 variant, not glibc)
 # ═══════════════════════════════════════════
 
-LCG_A = 1103515245
-LCG_C = 12345
-LCG_M = 2**31
+LCG_A = 6364136223846793005
+LCG_C = 1442695040888963407
+LCG_M = 2**64
 
 def lcg_next(state: int) -> int:
-    """Single LCG step."""
+    """Single LCG step with 64-bit arithmetic."""
     return (LCG_A * state + LCG_C) % LCG_M
 
 

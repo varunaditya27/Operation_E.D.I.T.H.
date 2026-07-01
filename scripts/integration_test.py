@@ -155,10 +155,13 @@ async def test_act4_zkp_websocket():
 
         # Step 6: Solve PoW
         counter = 0
+        pow_salt_bytes = pow_salt.encode()
+        sha256 = hashlib.sha256
         while True:
-            candidate = f"{pow_salt}{counter}".encode()
-            h = hashlib.sha256(candidate).hexdigest()
-            if h.startswith(prefix):
+            candidate = pow_salt_bytes + str(counter).encode()
+            h = sha256(candidate).digest()
+            # Fast check for '00000' (first 2 bytes are 0, next byte is < 16)
+            if h[0] == 0 and h[1] == 0 and h[2] < 16:
                 break
             counter += 1
         print(f"  [+] PoW solved: nonce={counter}")
