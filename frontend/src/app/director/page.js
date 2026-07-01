@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
-// Synthesized audio feedback engine
 const playTone = (freq, duration, type = "sine", volume = 0.04) => {
   if (typeof window === "undefined") return;
   try {
