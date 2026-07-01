@@ -165,7 +165,7 @@ def compute_scrp_response(employee_secret: bytes, challenge: str, salt: str) -> 
 
 def generate_blink_sequence(timestamp: int, state_key: str) -> list[str]:
     """Generate a deterministic 6-color blink sequence for a given time window.
-    Window is timestamp // BLINK_ROTATE_INTERVAL (10s buckets).
+    Window is timestamp // BLINK_ROTATE_INTERVAL (30min buckets).
     """
     from . import config
     window = timestamp // config.BLINK_ROTATE_INTERVAL

@@ -152,9 +152,9 @@ async def verify_auth(request: Request):
     challenge_id = body.get("challenge_id", "")
     timestamp = body.get("timestamp", 0)
 
-    # Validate timestamp is within ±10 minutes
+    # Validate timestamp is within ±30 minutes
     now = int(time.time())
-    if abs(now - timestamp) > 600:
+    if abs(now - timestamp) > 1800:
         return JSONResponse(status_code=403, content={"error": "Challenge expired. Please request a new challenge."})
 
     # Retrieve and consume challenge
@@ -411,9 +411,9 @@ async def get_hydra_capture(request: Request):
 
 @app.get("/api/v1/meta/hydra-clock")
 async def hydra_clock():
-    """Returns time until next HYDRA re-key tick (10-minute cycle, boot-relative)."""
+    """Returns time until next HYDRA re-key tick (30-minute cycle, boot-relative)."""
     elapsed = int(time.time()) - app.state.hydra_boot_time
-    cycle = 600  # 10 minutes
+    cycle = 1800  # 30 minutes
     next_tick = cycle - (elapsed % cycle)
     return {"next_tick_in": next_tick, "cycle_seconds": cycle}
 

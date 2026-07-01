@@ -43,7 +43,7 @@ export function SessionExpiredOverlay() {
           </button>
 
           <p className="text-xs text-red-300/50 mt-4 text-center font-mono">
-            Session TTL: 10 minutes from authentication
+            Session TTL: 30 minutes from authentication
           </p>
         </div>
       </div>

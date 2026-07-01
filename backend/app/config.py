@@ -118,7 +118,7 @@ BLINK_GRID = {
 }
 BLINK_COLORS = ["R", "G", "B", "Y"]
 BLINK_SEQUENCE_LEN = 6  # 6 flashes -> 3 pairs -> 3-char code
-BLINK_ROTATE_INTERVAL = 10  # seconds
+BLINK_ROTATE_INTERVAL = 1800  # seconds
 
 # ──────────────────────────────────────────────
 # Act II.5: Resonance Gate (SPEC-ACT2-WEBPORTAL §12)
