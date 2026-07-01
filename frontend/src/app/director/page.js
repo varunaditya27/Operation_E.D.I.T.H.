@@ -42,6 +42,7 @@ export default function DirectorTerminal() {
   const [flashCodeInput, setFlashCodeInput] = useState("");
   const [sessionInitialized, setSessionInitialized] = useState(false);
   const [flashIndicatorColor, setFlashIndicatorColor] = useState("R");
+  const [pcapToken, setPcapToken] = useState("");
   const flashSequenceRef = useRef([]);
 
   useEffect(() => {
@@ -56,6 +57,12 @@ export default function DirectorTerminal() {
       return;
     }
     setSessionToken(token);
+
+    // Check for pcap_token (issued when PCAP is downloaded)
+    const token_from_storage = localStorage.getItem("pcap_token");
+    if (token_from_storage) {
+      setPcapToken(token_from_storage);
+    }
 
     // Initial boot messages
     setTerminalLogs([
@@ -230,12 +237,20 @@ export default function DirectorTerminal() {
       return;
     }
 
+    if (!pcapToken) {
+      addLog("[-] PCAP artifact authorization required. Download PCAP from employee dashboard first.");
+      return;
+    }
+
     addLog("[*] Connecting to ZKP Gateway...");
+    addLog(`[*] Flash code: ${flashCodeInput}`);
 
     let wsUrl = apiUrl.replace("http://", "ws://").replace("https://", "wss://");
     if (!wsUrl.endsWith("/api/v1/admin/auth/ws")) {
       wsUrl = `${wsUrl}/api/v1/admin/auth/ws`;
     }
+    // Pass pcap_token, flash_code and nonce as query parameters for validation
+    wsUrl += `?pcap_token=${encodeURIComponent(pcapToken)}&nonce=${encodeURIComponent(nonce)}&flash_code=${encodeURIComponent(flashCodeInput)}`;
 
     try {
       const ws = new WebSocket(wsUrl);

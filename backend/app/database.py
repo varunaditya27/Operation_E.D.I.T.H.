@@ -59,6 +59,13 @@ def init_db():
             used BOOLEAN DEFAULT 0
         );
 
+        CREATE TABLE IF NOT EXISTS pcap_tokens (
+            token TEXT PRIMARY KEY,
+            session_token TEXT NOT NULL,
+            created_at INTEGER NOT NULL,
+            used BOOLEAN DEFAULT 0
+        );
+
         CREATE TABLE IF NOT EXISTS rate_limits (
             ip TEXT PRIMARY KEY,
             request_count INTEGER DEFAULT 0,
@@ -254,3 +261,47 @@ def increment_calibrate_attempts(session_token: str):
         (session_token,)
     )
     conn.commit()
+
+
+def invalidate_session(session_token: str):
+    """Invalidate a session (used by canary endpoints)."""
+    conn = _get_conn()
+    conn.execute(
+        "DELETE FROM auth_sessions WHERE session_token = ?",
+        (session_token,)
+    )
+    conn.commit()
+
+
+# ──────────────────────────────────────────
+# PCAP Token Gating (Phase D.2)
+# ──────────────────────────────────────────
+
+def create_pcap_token(session_token: str) -> str:
+    """Issue a one-time PCAP download token for this session."""
+    import secrets
+    token = f"pcap_{secrets.token_hex(16)}"
+    conn = _get_conn()
+    conn.execute(
+        "INSERT INTO pcap_tokens (token, session_token, created_at) VALUES (?, ?, ?)",
+        (token, session_token, int(time.time()))
+    )
+    conn.commit()
+    return token
+
+
+def validate_and_consume_pcap_token(token: str) -> bool:
+    """Validate and consume a PCAP token (one-time use)."""
+    conn = _get_conn()
+    row = conn.execute(
+        "SELECT token FROM pcap_tokens WHERE token = ? AND used = 0",
+        (token,)
+    ).fetchone()
+    if not row:
+        return False
+    conn.execute(
+        "UPDATE pcap_tokens SET used = 1 WHERE token = ?",
+        (token,)
+    )
+    conn.commit()
+    return True

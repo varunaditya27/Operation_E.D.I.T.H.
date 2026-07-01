@@ -162,6 +162,12 @@ export default function Dashboard() {
         },
       });
       if (res.ok) {
+        // Capture pcap_token from response headers (Phase D.2)
+        const pcapToken = res.headers.get("X-PCAP-Token");
+        if (pcapToken) {
+          localStorage.setItem("pcap_token", pcapToken);
+        }
+
         const blob = await res.blob();
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement("a");

@@ -90,6 +90,35 @@ async def debug_token():
 
 
 # ══════════════════════════════════════════════════════════
+# Canary Endpoints (Phase D.1 — honest anti-LLM traps)
+# These endpoints invalidate the session if accessed.
+# Legitimate solvers following documented flow never call these.
+# LLMs exploring the API surface will enumerate and call them.
+# ══════════════════════════════════════════════════════════
+
+@app.get("/api/v1/admin/debug/keys")
+async def admin_debug_keys(request: Request):
+    """Canary endpoint: looks tempting for key recovery, triggers session invalidation."""
+    auth = request.headers.get("Authorization", "")
+    if auth.startswith("Bearer "):
+        token = auth[7:]
+        # Trigger canary: invalidate this session
+        database.invalidate_session(token)
+    return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+
+
+@app.get("/api/v1/internal/health")
+async def internal_health(request: Request):
+    """Canary endpoint: appears like internal diagnostics, triggers session invalidation."""
+    auth = request.headers.get("Authorization", "")
+    if auth.startswith("Bearer "):
+        token = auth[7:]
+        # Trigger canary: invalidate this session
+        database.invalidate_session(token)
+    return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+
+
+# ══════════════════════════════════════════════════════════
 # Act II: SCRP Authentication (SPEC-ACT2-WEBPORTAL §4)
 # ══════════════════════════════════════════════════════════
 
@@ -349,23 +378,31 @@ async def admin_dashboard(request: Request):
 
 @app.get("/api/v1/artifacts/hydra-capture")
 async def get_hydra_capture(request: Request):
-    """Serve the HYDRA pcap only after dashboard access."""
+    """Serve the HYDRA pcap only after dashboard access.
+    Issues a one-time pcap_token required for WebSocket connection (Phase D.2).
+    """
     auth = request.headers.get("Authorization", "")
     if not auth.startswith("Bearer "):
         return JSONResponse(status_code=403, content={"error": "Authentication required."})
 
-    token = auth[7:]
-    if not database.is_pcap_released(token):
+    session_token = auth[7:]
+    if not database.is_pcap_released(session_token):
         return JSONResponse(
             status_code=403,
             content={"error": "Artifact not yet available. Complete prior objectives first."}
         )
 
+    # Issue a one-time pcap_token for this session
+    pcap_token = database.create_pcap_token(session_token)
+
     pcap_path = os.path.join(os.path.dirname(__file__), "..", "assets", "HYDRA_CAPTURE.pcapng")
     if not os.path.exists(pcap_path):
         return JSONResponse(status_code=404, content={"error": "Artifact not found on server."})
 
-    return FileResponse(pcap_path, filename="HYDRA_CAPTURE.pcapng")
+    # Return the PCAP file with the token in headers for client to use
+    response = FileResponse(pcap_path, filename="HYDRA_CAPTURE.pcapng")
+    response.headers["X-PCAP-Token"] = pcap_token
+    return response
 
 
 # ══════════════════════════════════════════════════════════
@@ -397,17 +434,44 @@ async def auth_ping():
 
 @app.websocket("/api/v1/admin/auth/ws")
 async def admin_auth_ws(websocket: WebSocket):
-    """Interactive ZKP authentication WebSocket.
+    """Interactive ZKP authentication WebSocket (2-round protocol — Phase D.4).
 
     Protocol flow (SPEC-ACT4-ZKPWS §3):
-    1. Server sends: server_init (nonce + captcha)
-    2. Client sends: client_commit (captcha_input + x)      [1s timeout]
-    3. Server sends: server_challenge (e vector)
-    4. Client sends: client_respond (y)                      [1s timeout]
-    5. Server sends: server_pow (salt + prefix)
-    6. Client sends: client_pow_solve (pow nonce)            [1s timeout]
-    7. Server sends: success + encrypted flag
+    1. Validate flash_code from query params (Act IV transcription gate)
+    2. Server sends: server_init (nonce + captcha)
+    3. ROUND 1 & 2 (repeated):
+       3a. Client sends: client_commit (captcha_input [round 1 only] + x)      [1.5s timeout]
+       3b. Server sends: server_challenge (e vector, round number)
+       3c. Client sends: client_respond (y)                                    [1.5s timeout]
+    4. Server sends: server_pow (salt + prefix)
+    5. Client sends: client_pow_solve (pow nonce)            [1s timeout]
+    6. Server sends: success + encrypted flag
+
+    2-round protocol reduces soundness error from 1/16 to 1/256 and increases
+    the number of WebSocket state transitions a solver must handle correctly.
     """
+    # Validate PCAP token (sequential gating — Phase D.2)
+    pcap_token = websocket.query_params.get("pcap_token", "")
+    if not pcap_token or not database.validate_and_consume_pcap_token(pcap_token):
+        await websocket.close(code=4003, reason="PCAP artifact authorization required")
+        return
+
+    # Validate flash_code transcription (Act IV perceptual gate)
+    nonce = websocket.query_params.get("nonce", "")
+    flash_code_input = websocket.query_params.get("flash_code", "").upper()
+
+    if not nonce or not flash_code_input:
+        await websocket.close(code=4003, reason="Flash code transcription required")
+        return
+
+    # Verify the flash_code matches what we expect for this nonce
+    expected_seq = crypto.generate_blink_sequence(int(time.time()), nonce)
+    expected_code = crypto.blink_sequence_to_code(expected_seq)
+
+    if flash_code_input != expected_code:
+        await websocket.close(code=4003, reason="Flash code verification failed")
+        return
+
     await websocket.accept()
 
     timeout = config.POW_TIMEOUT_MS / 1000.0  # 1.0 second
@@ -431,60 +495,68 @@ async def admin_auth_ws(websocket: WebSocket):
             },
         })
 
-        # ─── Step 2: Client Commitment [1s timeout] ───
-        try:
-            raw = await asyncio.wait_for(websocket.receive_text(), timeout=timeout)
-        except asyncio.TimeoutError:
-            await websocket.close(code=4008, reason="Clearance Timeout Exceeded")
-            return
+        # Verify CAPTCHA on first message
+        captcha_verified = False
 
-        commit_data = json.loads(raw)
-        if commit_data.get("event") != "client_commit":
-            await websocket.close(code=4003, reason="Unauthorized Cryptographic Claims")
-            return
+        # ─── ZKP Protocol: 2 Rounds of commit-challenge-respond ───
+        for round_num in range(2):
+            # Client Commitment [1.5s timeout per round]
+            try:
+                raw = await asyncio.wait_for(websocket.receive_text(), timeout=timeout * 1.5)
+            except asyncio.TimeoutError:
+                await websocket.close(code=4008, reason="Clearance Timeout Exceeded")
+                return
 
-        # Verify CAPTCHA
-        if commit_data.get("captcha_input", "").upper() != captcha_text.upper():
-            await websocket.close(code=4003, reason="CAPTCHA verification failed")
-            return
+            commit_data = json.loads(raw)
+            if commit_data.get("event") != "client_commit":
+                await websocket.close(code=4003, reason="Unauthorized Cryptographic Claims")
+                return
 
-        # Parse commitment x
-        try:
-            x = int(commit_data["x"], 16)
-        except (ValueError, KeyError):
-            await websocket.close(code=4003, reason="Invalid commitment value")
-            return
+            # Verify CAPTCHA on round 1 only
+            if round_num == 0:
+                if commit_data.get("captcha_input", "").upper() != captcha_text.upper():
+                    await websocket.close(code=4003, reason="CAPTCHA verification failed")
+                    return
+                captcha_verified = True
 
-        # ─── Step 3: Server Challenge ───
-        e = [secrets.randbelow(2) for _ in range(config.ZKP_K)]
+            # Parse commitment x
+            try:
+                x = int(commit_data["x"], 16)
+            except (ValueError, KeyError):
+                await websocket.close(code=4003, reason="Invalid commitment value")
+                return
 
-        await websocket.send_json({
-            "event": "server_challenge",
-            "e": e,
-        })
+            # Server Challenge
+            e = [secrets.randbelow(2) for _ in range(config.ZKP_K)]
 
-        # ─── Step 4: Client Response [1s timeout] ───
-        try:
-            raw = await asyncio.wait_for(websocket.receive_text(), timeout=timeout)
-        except asyncio.TimeoutError:
-            await websocket.close(code=4008, reason="Clearance Timeout Exceeded")
-            return
+            await websocket.send_json({
+                "event": "server_challenge",
+                "round": round_num + 1,
+                "e": e,
+            })
 
-        respond_data = json.loads(raw)
-        if respond_data.get("event") != "client_respond":
-            await websocket.close(code=4003, reason="Unauthorized Cryptographic Claims")
-            return
+            # Client Response [1.5s timeout]
+            try:
+                raw = await asyncio.wait_for(websocket.receive_text(), timeout=timeout * 1.5)
+            except asyncio.TimeoutError:
+                await websocket.close(code=4008, reason="Clearance Timeout Exceeded")
+                return
 
-        try:
-            y = int(respond_data["y"], 16)
-        except (ValueError, KeyError):
-            await websocket.close(code=4003, reason="Invalid response value")
-            return
+            respond_data = json.loads(raw)
+            if respond_data.get("event") != "client_respond":
+                await websocket.close(code=4003, reason="Unauthorized Cryptographic Claims")
+                return
 
-        # Verify ZKP: y^2 ≡ x * prod(v_j^e_j) (mod N)
-        if not crypto.verify_zkp_response(x, y, e, config.ZKP_PUBLIC_KEYS, config.ZKP_N):
-            await websocket.close(code=4003, reason="ZKP verification failed")
-            return
+            try:
+                y = int(respond_data["y"], 16)
+            except (ValueError, KeyError):
+                await websocket.close(code=4003, reason="Invalid response value")
+                return
+
+            # Verify ZKP: y^2 ≡ x * prod(v_j^e_j) (mod N)
+            if not crypto.verify_zkp_response(x, y, e, config.ZKP_PUBLIC_KEYS, config.ZKP_N):
+                await websocket.close(code=4003, reason="ZKP verification failed")
+                return
 
         # ─── Step 5: Proof-of-Work ───
         pow_salt = crypto.generate_pow_salt()

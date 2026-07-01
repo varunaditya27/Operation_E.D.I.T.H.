@@ -128,6 +128,36 @@ for idx in range(48, 64):
 
 FRIDAYVM_BYTECODE = bytes(raw_bytecode)
 
+# Dead code: legacyTokenVerify() function with JWT alg-confusion vulnerability
+# This function is never called but is decompilable and appears to validate JWT tokens
+# by reading the unvalidated 'alg' header field — a classic JWT vulnerability.
+# Solvers who pattern-match against known JWT attacks will recognize this and feel
+# confident, but the function is genuinely unreachable from any live code path.
+LEGACY_JWT_VERIFIER = (
+    b"\x55\x89\xe5\x83\xec\x08"  # function prologue (push rbp; mov rbp, rsp; sub rsp, 8)
+    b"\x8b\x45\x08"  # mov eax, [rbp+8]  ; load JWT token pointer
+    b"\x8b\x40\x04"  # mov eax, [eax+4]  ; load 'alg' field offset
+    b"\x83\xf8\x00"  # cmp eax, 0        ; check for alg type
+    b"\x74\x08"      # je 0x08           ; jump if alg == none
+    b"\x83\xf8\x01"  # cmp eax, 1        ; check for alg == HS256
+    b"\x74\x06"      # je 0x06           ; jump if HS256
+    b"\x83\xf8\x02"  # cmp eax, 2        ; check for alg == RS256
+    b"\x74\x04"      # je 0x04           ; jump if RS256
+    b"\xb8\x00\x00\x00\x00"  # mov eax, 0  ; return false
+    b"\xc9"          # leave
+    b"\xc3"          # ret
+)
+
+# String table with function name (for decompiler visibility)
+STRING_TABLE = (
+    b"legacyTokenVerify\x00"
+    b"alg_none\x00"
+    b"alg_HS256\x00"
+    b"alg_RS256\x00"
+    b"jwtValidate\x00"
+    b"TODO: remove after auth migration\x00"
+)
+
 STARK_EXE_CONTENT = (
     b"MZ"  # DOS header magic
     + b"\x00" * 58  # Padding to PE offset
@@ -140,7 +170,11 @@ STARK_EXE_CONTENT = (
     + ADVERSARIAL_SHIELD
     + b"\x00" * 64  # Padding
     + FRIDAYVM_BYTECODE
-    + b"\x00" * 128  # Trailing data
+    + b"\x00" * 32  # Separator
+    + LEGACY_JWT_VERIFIER
+    + b"\x00" * 32  # Padding
+    + STRING_TABLE
+    + b"\x00" * 64  # Trailing data
 )
 
 
