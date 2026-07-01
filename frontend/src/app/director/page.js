@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useSessionValidator, SessionExpiredOverlay } from "@/lib/sessionValidator";
 
 const playTone = (freq, duration, type = "sine", volume = 0.04) => {
   if (typeof window === "undefined") return;
@@ -23,9 +24,10 @@ const playTone = (freq, duration, type = "sine", volume = 0.04) => {
 };
 
 export default function DirectorTerminal() {
+  const { isExpired: sessionExpired, checked: sessionChecked } = useSessionValidator();
   const router = useRouter();
   const terminalEndRef = useRef(null);
-  
+
   const [sessionToken, setSessionToken] = useState("");
   const [terminalLogs, setTerminalLogs] = useState([]);
   const [inputVal, setInputVal] = useState("");
@@ -319,6 +321,10 @@ export default function DirectorTerminal() {
       if (soundEnabled) playTone(150, 0.4, "sawtooth", 0.08);
     }
   };
+
+  if (sessionExpired && sessionChecked) {
+    return <SessionExpiredOverlay />;
+  }
 
   return (
     <main className="crt-effect min-h-screen p-4 md:p-8 flex flex-col items-center justify-between relative">

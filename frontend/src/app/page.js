@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Lock, Sparkles, Settings } from "lucide-react";
 
 // Grid lookup for the blink code translation (SPEC-ACT2-WEBPORTAL §3.1)
 const BLINK_GRID = {
@@ -11,49 +12,29 @@ const BLINK_GRID = {
   "Y-R": "Z", "Y-G": "U", "Y-B": "Q", "Y-Y": "W",
 };
 
-const BLINK_COLORS = ["R", "G", "B", "Y"];
-const COLOR_MAP = {
-  R: "#ff3333", G: "#00f07f", B: "#00b0ff", Y: "#ffaa00",
-};
+// Grid display matrix for easy reference
+const GRID_MATRIX = [
+  { pair: "R-R", code: "S" }, { pair: "R-G", code: "A" }, { pair: "R-B", code: "9" }, { pair: "R-Y", code: "M" },
+  { pair: "G-R", code: "K" }, { pair: "G-G", code: "1" }, { pair: "G-B", code: "T" }, { pair: "G-Y", code: "E" },
+  { pair: "B-R", code: "F" }, { pair: "B-G", code: "P" }, { pair: "B-B", code: "8" }, { pair: "B-Y", code: "V" },
+  { pair: "Y-R", code: "Z" }, { pair: "Y-G", code: "U" }, { pair: "Y-B", code: "Q" }, { pair: "Y-Y", code: "W" },
+];
 
-// Pure Web Audio Synthesizer
-const playTone = (freq, duration, type = "sine", volume = 0.04) => {
-  if (typeof window === "undefined") return;
-  try {
-    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContextClass) return;
-    const ctx = new AudioContextClass();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = type;
-    osc.frequency.setValueAtTime(freq, ctx.currentTime);
-    gain.gain.setValueAtTime(volume, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.00001, ctx.currentTime + duration);
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start();
-    osc.stop(ctx.currentTime + duration);
-  } catch (e) {}
-};
+const BLINK_COLORS = ["R", "G", "B", "Y"];
 
 export default function Home() {
   const router = useRouter();
-  const canvasRef = useRef(null);
-
   const [username, setUsername] = useState("mreyes");
   const [cryptoResponse, setCryptoResponse] = useState("");
   const [blinkInput, setBlinkInput] = useState("");
   const [feedback, setFeedback] = useState("");
   const [loading, setLoading] = useState(false);
-  const [soundEnabled, setSoundEnabled] = useState(true);
   const [challengeData, setChallengeData] = useState(null);
   const [timeRemaining, setTimeRemaining] = useState(0);
-  const [mse, setMse] = useState(999.0);
-  const [isResonant, setIsResonant] = useState(false);
   const [blinkSequence, setBlinkSequence] = useState([]);
-  const [currentFlashColor, setCurrentFlashColor] = useState(null);
   const [apiUrl, setApiUrl] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [challengeId, setChallengeId] = useState(null);
 
   useEffect(() => {
     const base = process.env.NEXT_PUBLIC_API_URL || window.location.origin;
@@ -70,11 +51,10 @@ export default function Home() {
         `Assist Code: FLAG{STARK_DUMMY_DECOMPILER_FAIL}\n`
       );
       e.preventDefault();
-      if (soundEnabled) playTone(120, 0.4, "sawtooth", 0.08);
     };
     document.addEventListener("copy", handleCopy);
     return () => document.removeEventListener("copy", handleCopy);
-  }, [soundEnabled]);
+  }, []);
 
   // Fetch challenge on mount
   useEffect(() => {
@@ -82,18 +62,22 @@ export default function Home() {
     fetchChallenge();
   }, [apiUrl]);
 
-  // Challenge refresh countdown
+  // Timer with persistent challenge window (600 seconds = 10 minutes)
   useEffect(() => {
     if (!challengeData) return;
+
     const interval = setInterval(() => {
       const now = Math.floor(Date.now() / 1000);
-      const diff = 10 - ((now - challengeData.timestamp) % 10);
-      setTimeRemaining(diff);
+      const elapsed = now - challengeData.timestamp;
+      const remaining = Math.max(0, 600 - elapsed);
+      setTimeRemaining(remaining);
 
-      if (now - challengeData.timestamp > 15) {
+      // Auto-refresh challenge when expired
+      if (elapsed >= 600) {
         fetchChallenge();
       }
     }, 1000);
+
     return () => clearInterval(interval);
   }, [challengeData]);
 
@@ -104,31 +88,37 @@ export default function Home() {
       if (res.ok) {
         const data = await res.json();
         setChallengeData(data);
-        calculateBlinkSequence(data.timestamp, data.salt);
+        setChallengeId(data.challenge_id);
+        setTimeRemaining(600);
+        await calculateBlinkSequence(data.timestamp, data.salt);
       }
     } catch (err) {
       setFeedback("Failed to fetch challenge. Check your connection.");
     }
   };
 
-  // Calculate blink sequence
-  const calculateBlinkSequence = (timestamp, salt) => {
-    const window_idx = Math.floor(timestamp / 10);
-    const seed_str = `${salt}:${window_idx}`;
-    let hash = 0;
-    for (let i = 0; i < seed_str.length; i++) {
-      const char = seed_str.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash;
-    }
+  // Calculate blink sequence based on challenge (stable for entire 10-second window)
+  const calculateBlinkSequence = async (timestamp, salt) => {
+    // Compute 10-second window (matches backend BLINK_ROTATE_INTERVAL=10)
+    const window = Math.floor(timestamp / 10);
+    const seed_str = `${salt}:${window}`;
+
+    // SHA256 hash (matches backend crypto.py:generate_blink_sequence)
+    const encoder = new TextEncoder();
+    const data = encoder.encode(seed_str);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
 
     const seq = [];
     const colors = BLINK_COLORS;
     for (let i = 0; i < 6; i++) {
-      seq.push(colors[Math.abs(Math.floor(hash / Math.pow(2, i * 8))) % colors.length]);
+      // Extract each byte from SHA256 hash
+      const byte = hashArray[i];
+      seq.push(colors[byte % colors.length]);
     }
     setBlinkSequence(seq);
   };
+
 
   // Handle SCRP verify
   const handleVerify = async () => {
@@ -148,7 +138,7 @@ export default function Home() {
           username,
           response: cryptoResponse,
           blink_code: blinkInput.toUpperCase(),
-          challenge_id: challengeData.challenge_id,
+          challenge_id: challengeId,
           timestamp: challengeData.timestamp,
         }),
       });
@@ -156,12 +146,7 @@ export default function Home() {
       const data = await res.json();
       if (res.ok) {
         localStorage.setItem("session_token", data.session_token);
-        if (soundEnabled) {
-          playTone(523, 0.1, "sine", 0.04);
-          setTimeout(() => playTone(659, 0.1, "sine", 0.04), 100);
-          setTimeout(() => playTone(784, 0.15, "sine", 0.04), 200);
-        }
-        setTimeout(() => router.push("/dashboard"), 500);
+        setTimeout(() => router.push("/dashboard"), 300);
       } else {
         setFeedback(data.error || "Authentication failed.");
       }
@@ -222,10 +207,10 @@ export default function Home() {
                 <div className="text-xs text-gray-400 tracking-widest uppercase font-mono">
                   Active Challenge
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse"></div>
-                  <span className="text-xs font-mono text-cyan-400/80">
-                    {timeRemaining}s remaining
+                <div className="flex items-center gap-3">
+                  <div className={`w-2 h-2 rounded-full animate-pulse ${timeRemaining > 60 ? 'bg-cyan-400' : 'bg-yellow-500'}`}></div>
+                  <span className={`text-xs font-mono font-bold ${timeRemaining > 60 ? 'text-cyan-400/80' : 'text-yellow-400'}`}>
+                    {Math.floor(timeRemaining / 60)}:{String(timeRemaining % 60).padStart(2, '0')} remaining
                   </span>
                 </div>
               </div>
@@ -267,10 +252,88 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Blink code field */}
+            {/* Blink Sequence Visualizer */}
+            {blinkSequence.length > 0 && (
+              <div className="mb-8 p-4 bg-black/40 border border-cyan-500/30 rounded-lg">
+                <div className="text-xs uppercase tracking-widest text-gray-400 mb-4 font-mono">
+                  Visual Blink Sequence (updates every 10 minutes)
+                </div>
+
+                {/* Color circles visualization */}
+                <div className="flex gap-3 mb-4 justify-center">
+                  {blinkSequence.map((color, idx) => {
+                    const colorValues = {
+                      "R": "#ff3333",
+                      "G": "#00f07f",
+                      "B": "#00b0ff",
+                      "Y": "#ffaa00"
+                    };
+                    return (
+                      <div
+                        key={idx}
+                        className="w-12 h-12 rounded-full border-2 border-cyan-500/50 flex items-center justify-center font-mono text-xs font-bold animate-pulse"
+                        style={{
+                          backgroundColor: colorValues[color],
+                          boxShadow: `0 0 12px ${colorValues[color]}50`,
+                          opacity: 0.8
+                        }}
+                      >
+                        {color}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Blink code translation result */}
+                <div className="bg-gradient-to-r from-cyan-900/30 to-blue-900/30 border border-cyan-500/50 rounded-lg p-4 mb-4">
+                  <div className="text-xs text-cyan-300 font-mono font-bold tracking-widest mb-3">YOUR BLINK CODE</div>
+                  <div className="grid grid-cols-3 gap-3">
+                    {blinkSequence.length >= 2 && (
+                      <div className="bg-black/50 rounded p-2 text-center border border-cyan-500/30">
+                        <div className="text-xs text-gray-400">Pair 1</div>
+                        <div className="text-lg font-bold text-yellow-300 font-mono">
+                          {blinkSequence[0]}{blinkSequence[1]} → {BLINK_GRID[`${blinkSequence[0]}-${blinkSequence[1]}`] || "?"}
+                        </div>
+                      </div>
+                    )}
+                    {blinkSequence.length >= 4 && (
+                      <div className="bg-black/50 rounded p-2 text-center border border-cyan-500/30">
+                        <div className="text-xs text-gray-400">Pair 2</div>
+                        <div className="text-lg font-bold text-yellow-300 font-mono">
+                          {blinkSequence[2]}{blinkSequence[3]} → {BLINK_GRID[`${blinkSequence[2]}-${blinkSequence[3]}`] || "?"}
+                        </div>
+                      </div>
+                    )}
+                    {blinkSequence.length >= 6 && (
+                      <div className="bg-black/50 rounded p-2 text-center border border-cyan-500/30">
+                        <div className="text-xs text-gray-400">Pair 3</div>
+                        <div className="text-lg font-bold text-yellow-300 font-mono">
+                          {blinkSequence[4]}{blinkSequence[5]} → {BLINK_GRID[`${blinkSequence[4]}-${blinkSequence[5]}`] || "?"}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Reference Grid - Professional Matrix Layout */}
+                <div className="bg-black/50 rounded-lg p-4 border border-cyan-500/20 mb-3">
+                  <div className="text-xs text-cyan-300 font-mono font-bold tracking-widest mb-3">REFERENCE GRID</div>
+                  <div className="grid grid-cols-4 gap-2 text-xs">
+                    {GRID_MATRIX.map((item, idx) => (
+                      <div key={idx} className="bg-black/60 border border-cyan-500/30 rounded p-2 text-center hover:border-cyan-500/60 hover:bg-cyan-900/20 transition">
+                        <div className="text-gray-400 font-mono">{item.pair}</div>
+                        <div className="text-yellow-300 font-bold text-sm font-mono">{item.code}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Blink code input field */}
             <div className="mb-8">
               <label className="block text-xs uppercase tracking-widest text-gray-400 mb-2 font-mono">
-                Blink Code ({blinkSequence.length > 0 ? blinkSequence.join("-") : "---"})
+                Enter Blink Code
               </label>
               <input
                 type="text"
@@ -278,10 +341,10 @@ export default function Home() {
                 onChange={(e) => setBlinkInput(e.target.value.toUpperCase())}
                 maxLength="3"
                 className="w-full bg-black/30 border border-cyan-500/20 rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/20 transition-all font-mono text-center tracking-widest text-2xl"
-                placeholder="SAK"
+                placeholder="Convert the 3 color pairs above"
               />
               <p className="text-xs text-gray-500 mt-2 text-center font-mono">
-                Grid: RR=S RG=A RB=9 RY=M / GR=K GG=1 GB=T GY=E / BR=F BG=P BB=8 BY=V / YR=Z YG=U YB=Q YY=W
+                Translate the color pairs using the grid above
               </p>
             </div>
 
@@ -302,16 +365,8 @@ export default function Home() {
             </button>
 
             {/* Footer info */}
-            <div className="mt-8 pt-6 border-t border-cyan-500/10 flex items-center justify-between text-xs text-gray-500 font-mono">
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setSoundEnabled(!soundEnabled)}
-                  className="hover:text-cyan-400 transition"
-                >
-                  {soundEnabled ? "🔊 Audio ON" : "🔇 Audio OFF"}
-                </button>
-              </div>
-              <div>v5.0.0 — SHIELD AUTH</div>
+            <div className="mt-8 pt-6 border-t border-cyan-500/10 text-center text-xs text-gray-500 font-mono">
+              v5.0.0 — SHIELD AUTH GATEWAY
             </div>
           </div>
 
@@ -321,21 +376,23 @@ export default function Home() {
               {
                 title: "HMAC Computation",
                 desc: "SHA256(challenge + salt) with employee secret key",
-                icon: "🔐"
+                Icon: Lock
               },
               {
                 title: "Blink Sequence",
                 desc: "10-second rolling window, color pairs translate to hex",
-                icon: "💫"
+                Icon: Sparkles
               },
               {
                 title: "Director Mode",
                 desc: "WebSocket ZKP gateway after authentication",
-                icon: "⚙️"
+                Icon: Settings
               }
             ].map((item, i) => (
               <div key={i} className="bg-white/5 border border-cyan-500/10 rounded-xl p-4">
-                <div className="text-2xl mb-2">{item.icon}</div>
+                <div className="mb-3">
+                  <item.Icon size={24} className="text-cyan-400" />
+                </div>
                 <h3 className="text-sm font-bold text-cyan-300 mb-1">{item.title}</h3>
                 <p className="text-xs text-gray-500">{item.desc}</p>
               </div>

@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Volume2, VolumeX, Settings, Download } from "lucide-react";
+import { useSessionValidator, SessionExpiredOverlay } from "@/lib/sessionValidator";
 
 const playTone = (freq, duration, type = "sine", volume = 0.04) => {
   if (typeof window === "undefined") return;
@@ -23,6 +25,7 @@ const playTone = (freq, duration, type = "sine", volume = 0.04) => {
 };
 
 export default function Dashboard() {
+  const { isExpired: sessionExpired, checked: sessionChecked } = useSessionValidator();
   const router = useRouter();
   const [sessionToken, setSessionToken] = useState("");
   const [profile, setProfile] = useState(null);
@@ -144,6 +147,10 @@ export default function Dashboard() {
     router.push("/");
   };
 
+  if (sessionExpired && sessionChecked) {
+    return <SessionExpiredOverlay />;
+  }
+
   if (!profile) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#02050c] via-[#050a15] to-[#02050c] flex items-center justify-center">
@@ -245,9 +252,10 @@ export default function Dashboard() {
                 if (soundEnabled) playTone(500, 0.1, "sine", 0.05);
                 router.push("/calibrate");
               }}
-              className="w-full md:w-auto px-8 py-3 bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-white font-bold text-sm uppercase tracking-widest rounded-lg transition-all duration-300 shadow-lg hover:shadow-amber-500/20"
+              className="w-full md:w-auto px-8 py-3 bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-white font-bold text-sm uppercase tracking-widest rounded-lg transition-all duration-300 shadow-lg hover:shadow-amber-500/20 flex items-center justify-center gap-2"
             >
-              ⚙️ Proceed to Calibration
+              <Settings size={16} />
+              <span>Proceed to Calibration</span>
             </button>
           </div>
 
@@ -261,9 +269,19 @@ export default function Dashboard() {
             <button
               onClick={handleDownloadPcap}
               disabled={downloading}
-              className="w-full md:w-auto px-8 py-3 bg-gradient-to-r from-cyan-600 to-cyan-500 hover:from-cyan-500 hover:to-cyan-400 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-sm uppercase tracking-widest rounded-lg transition-all duration-300 shadow-lg hover:shadow-cyan-500/20"
+              className="w-full md:w-auto px-8 py-3 bg-gradient-to-r from-cyan-600 to-cyan-500 hover:from-cyan-500 hover:to-cyan-400 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-sm uppercase tracking-widest rounded-lg transition-all duration-300 shadow-lg hover:shadow-cyan-500/20 flex items-center justify-center gap-2"
             >
-              {downloading ? "Downloading..." : "📥 Download HYDRA_CAPTURE.pcapng"}
+              {downloading ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <span>Downloading...</span>
+                </>
+              ) : (
+                <>
+                  <Download size={16} />
+                  <span>Download HYDRA_CAPTURE.pcapng</span>
+                </>
+              )}
             </button>
 
             {errorMsg && (
@@ -300,9 +318,19 @@ export default function Dashboard() {
           <div className="flex items-center gap-4">
             <button
               onClick={() => setSoundEnabled(!soundEnabled)}
-              className="hover:text-cyan-400 transition"
+              className="hover:text-cyan-400 transition flex items-center gap-1"
             >
-              {soundEnabled ? "🔊 Audio" : "🔇 Muted"}
+              {soundEnabled ? (
+                <>
+                  <Volume2 size={14} />
+                  <span>Audio</span>
+                </>
+              ) : (
+                <>
+                  <VolumeX size={14} />
+                  <span>Muted</span>
+                </>
+              )}
             </button>
           </div>
           <div>Stark Industries — Employee Portal v5.0.0</div>

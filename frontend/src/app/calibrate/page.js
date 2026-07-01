@@ -1,8 +1,11 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { CheckCircle } from 'lucide-react';
+import { useSessionValidator, SessionExpiredOverlay } from '@/lib/sessionValidator';
 
 export default function CalibratePage() {
+  const { isExpired: sessionExpired, checked: sessionChecked } = useSessionValidator();
   const [session, setSession] = useState(null);
   const [target, setTarget] = useState(null);
   const [freq, setFreq] = useState(0.5);
@@ -152,7 +155,7 @@ export default function CalibratePage() {
       const data = await resp.json();
       if (data.pass) {
         setPassed(true);
-        setMessage('✓ Calibration successful! Proceeding...');
+        setMessage('Calibration successful! Proceeding...');
         setTimeout(() => window.location.href = '/director', 3000);
       } else {
         setMessage('Calibration failed. Adjust parameters and try again.');
@@ -163,6 +166,10 @@ export default function CalibratePage() {
       setAttempting(false);
     }
   };
+
+  if (sessionExpired && sessionChecked) {
+    return <SessionExpiredOverlay />;
+  }
 
   if (loading) {
     return (
@@ -218,7 +225,7 @@ export default function CalibratePage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
               {[
                 { name: 'Frequency', value: freq, setValue: setFreq, min: 0.1, max: 2.0, step: 0.01 },
-                { name: 'Phase', value: phase, setValue: setPhase, min: 0, max: 2 * Math.PI, step: 0.01 },
+                { name: 'Phase', value: phase, setValue: setPhase, min: 0, max: 2 * Math.PI, step: 0.001 },
                 { name: 'Amplitude', value: amp, setValue: setAmp, min: 0.1, max: 1.5, step: 0.01 },
                 { name: 'Skew', value: skew, setValue: setSkew, min: -0.5, max: 0.5, step: 0.01 }
               ].map(slider => (
@@ -241,11 +248,12 @@ export default function CalibratePage() {
 
             {/* Feedback */}
             {message && (
-              <div className={`p-4 rounded-lg mb-8 text-sm font-mono ${
+              <div className={`p-4 rounded-lg mb-8 text-sm font-mono flex items-center gap-2 ${
                 passed ? 'bg-green-500/10 border border-green-500/30 text-green-300' :
                 message.includes('failed') ? 'bg-red-500/10 border border-red-500/30 text-red-300' :
                 'bg-cyan-500/10 border border-cyan-500/30 text-cyan-300'
               }`}>
+                {passed && <CheckCircle size={16} />}
                 {message}
               </div>
             )}
