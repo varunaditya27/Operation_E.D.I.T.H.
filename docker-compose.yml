@@ -11,6 +11,7 @@ services:
       - STATE_KEY=stark_audit_v5
       - DB_PATH=/app/data/edith.db
       - DH_SERVER_PRIVATE=57382103
+      - FLAG=flag{SHIELD_COGNITIVE_AUTHENTICATION_PASSED_77391}
     volumes:
       - backend-data:/app/data
     restart: always

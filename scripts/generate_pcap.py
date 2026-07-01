@@ -56,10 +56,11 @@ def build_epb_block(iv: bytes, ciphertext: bytes, timestamp_us: int) -> bytes:
     epb_body = bytearray()
     epb_body.extend(struct.pack("<I", 0))  # Interface ID
     epb_body.extend(struct.pack("<II", timestamp_us >> 32, timestamp_us & 0xFFFFFFFF))  # Timestamp
-    epb_body.extend(struct.pack("<II", len(packet_data), len(packet_data)))  # Lengths
+    epb_body.extend(struct.pack("<II", len(packet_data), len(packet_data)))  # Captured & Original Length
     epb_body.extend(padded_packet)
 
-    epb_block_len = 12 + len(epb_body) + 4
+    # pcapng block: Type(4) + Length(4) + Body(N) + Length(4)
+    epb_block_len = 4 + 4 + len(epb_body) + 4
     epb = bytearray()
     epb.extend(struct.pack("<I", 6))  # Block Type (6 = EPB)
     epb.extend(struct.pack("<I", epb_block_len))
@@ -248,27 +249,31 @@ def generate_pcapng(output_path: str):
     # PCAPNG Structure Builder
     # ══════════════════════════════════════════════════════════
     # Section Header Block (SHB)
+    # pcapng SHB: Magic(4) + Length(4) + Body(N) + Length(4)
     shb = bytearray()
-    shb.extend(b"\x0A\x0D\x0D\x0A")  # Magic
+    shb.extend(b"\x0A\x0D\x0D\x0A")  # Magic (not counted in block length)
     shb_body = bytearray()
     shb_body.extend(struct.pack("<I", 0x1A2B3C4D))  # Byte Order
     shb_body.extend(struct.pack("<HH", 1, 0))  # Version
-    shb_body.extend(struct.pack("<q", -1))  # Length
-    shb_block_len = 12 + len(shb_body) + 4
+    shb_body.extend(struct.pack("<q", -1))  # Section Length
+    shb_block_len = 4 + 4 + len(shb_body) + 4  # Length field + Body + Length field (repeated)
     shb.extend(struct.pack("<I", shb_block_len))
     shb.extend(shb_body)
     shb.extend(struct.pack("<I", shb_block_len))
 
     # Interface Description Block (IDB)
     idb = bytearray()
-    idb.extend(struct.pack("<I", 1))
+    idb.extend(struct.pack("<I", 1))  # Block Type = 1 (Interface Description Block)
     idb_body = bytearray()
-    idb_body.extend(struct.pack("<HH", 1, 0))  # Raw IP link
+    idb_body.extend(struct.pack("<HH", 1, 0))  # Link Type (Raw IP), Reserved
     idb_body.extend(struct.pack("<I", 65535))  # Snap len
-    idb_block_len = 12 + len(idb_body) + 4
-    idb.extend(struct.pack("<I", idb_block_len))
+    # pcapng block: Type(4) + Length(4) + Body(N) + Length(4)
+    idb_block_len = 4 + 4 + len(idb_body) + 4  # Total block size
+    idb = bytearray()  # Rebuild correctly
+    idb.extend(struct.pack("<I", 1))  # Block Type
+    idb.extend(struct.pack("<I", idb_block_len))  # Block Length
     idb.extend(idb_body)
-    idb.extend(struct.pack("<I", idb_block_len))
+    idb.extend(struct.pack("<I", idb_block_len))  # Block Length (repeated)
 
     # Build individual EPB packets
     now_us = int(time.time() * 1_000_000)
