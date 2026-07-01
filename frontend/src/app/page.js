@@ -38,7 +38,26 @@ export default function Home() {
 
   useEffect(() => {
     const base = process.env.NEXT_PUBLIC_API_URL || window.location.origin;
-    setApiUrl(base.includes("localhost:3000") ? "http://localhost:8000" : base);
+    const resolvedUrl = base.includes("localhost:3000") ? "http://localhost:8000" : base;
+    setApiUrl(resolvedUrl);
+
+    // Fetch challenge immediately with resolved URL
+    const fetchImmediately = async () => {
+      try {
+        const res = await fetch(`${resolvedUrl}/api/v1/auth/challenge?username=mreyes`);
+        if (res.ok) {
+          const data = await res.json();
+          setChallengeData(data);
+          setChallengeId(data.challenge_id);
+          setTimeRemaining(600);
+          await calculateBlinkSequence(data.timestamp, data.salt);
+        }
+      } catch (err) {
+        setFeedback("Failed to fetch challenge. Check your connection.");
+      }
+    };
+
+    fetchImmediately();
   }, []);
 
   // Anti-AI / Anti-Copy Clipboard Poisoner
@@ -56,24 +75,19 @@ export default function Home() {
     return () => document.removeEventListener("copy", handleCopy);
   }, []);
 
-  // Fetch challenge on mount
-  useEffect(() => {
-    if (!apiUrl) return;
-    fetchChallenge();
-  }, [apiUrl]);
 
-  // Timer with persistent challenge window (600 seconds = 10 minutes)
+  // Timer with persistent challenge window (1800 seconds = 30 minutes)
   useEffect(() => {
     if (!challengeData) return;
 
     const interval = setInterval(() => {
       const now = Math.floor(Date.now() / 1000);
       const elapsed = now - challengeData.timestamp;
-      const remaining = Math.max(0, 600 - elapsed);
+      const remaining = Math.max(0, 1800 - elapsed);
       setTimeRemaining(remaining);
 
       // Auto-refresh challenge when expired
-      if (elapsed >= 600) {
+      if (elapsed >= 1800) {
         fetchChallenge();
       }
     }, 1000);
@@ -97,10 +111,10 @@ export default function Home() {
     }
   };
 
-  // Calculate blink sequence based on challenge (stable for entire 10-second window)
+  // Calculate blink sequence based on challenge (stable for entire 30-miinute window)
   const calculateBlinkSequence = async (timestamp, salt) => {
-    // Compute 10-second window (matches backend BLINK_ROTATE_INTERVAL=10)
-    const window = Math.floor(timestamp / 10);
+    // Compute 30-minute window (matches backend BLINK_ROTATE_INTERVAL=1800)
+    const window = Math.floor(timestamp / 1800);
     const seed_str = `${salt}:${window}`;
 
     // SHA256 hash (matches backend crypto.py:generate_blink_sequence)
@@ -256,7 +270,7 @@ export default function Home() {
             {blinkSequence.length > 0 && (
               <div className="mb-8 p-4 bg-black/40 border border-cyan-500/30 rounded-lg">
                 <div className="text-xs uppercase tracking-widest text-gray-400 mb-4 font-mono">
-                  Visual Blink Sequence (updates every 10 minutes)
+                  Visual Blink Sequence (updates every 30 minutes)
                 </div>
 
                 {/* Color circles visualization */}
@@ -380,7 +394,7 @@ export default function Home() {
               },
               {
                 title: "Blink Sequence",
-                desc: "10-second rolling window, color pairs translate to hex",
+                desc: "30-minute rolling window, color pairs translate to hex",
                 Icon: Sparkles
               },
               {

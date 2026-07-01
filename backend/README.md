@@ -17,7 +17,7 @@ The backend subsystem is built on **FastAPI** and **SQLite**, exposing the main 
 
 ### 1. Symmetric Challenge-Response Protocol (SCRP)
 - **Challenge Issuance (`GET /api/v1/auth/challenge`)**: Returns a dynamic timestamped challenge payload, a salt value, and a unique transaction token.
-- **Verification (`POST /api/v1/auth/verify`)**: Validates symmetrical HMAC-SHA256 tokens using the FridayVM employee secret, matched with a transient 3-character visual blink code calculated from 10-second timestamp rotations.
+- **Verification (`POST /api/v1/auth/verify`)**: Validates symmetrical HMAC-SHA256 tokens using the FridayVM employee secret, matched with a transient 3-character visual blink code calculated from 30-minute timestamp rotations.
 
 ### 2. Isolated PCAP Gateway
 - **Artifact Gating (`GET /api/v1/artifacts/hydra-capture`)**: Releases the network PCAP captures to logged-in employees, enforcing session limits and DB persistence mapping.

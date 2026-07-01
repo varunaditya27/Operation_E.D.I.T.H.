@@ -1,9 +1,10 @@
-# Stark Web Portal & SCRP Protocol — Technical Specification
+# Stark Web Portal, SCRP & Calibration Gate — Technical Specification
 ### Document ID: SPEC-ACT2-WEBPORTAL
-### Status: Release/Production-Ready
-### Target Implementation: Act II Web Authentication
+### Status: v6.0.0 Production Ready
+### Last Updated: July 1, 2026
+### Target Implementation: Act II (Authentication) & Act II.5 (Calibration Gate)
 
-This document details the interface, mathematical calibration, and communication protocols for the Vercel-deployed **Stark Employee Portal** frontend and backend API.
+This document details the interface, mathematical calibration, and communication protocols for the **Stark Employee Portal** (Next.js) frontend and backend API, including the new Act II.5 Resonance Calibration Gate that gates access to Act III/IV.
 
 ---
 

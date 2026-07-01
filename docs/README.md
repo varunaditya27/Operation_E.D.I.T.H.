@@ -1,7 +1,7 @@
-# Operation E.D.I.T.H. v5 — Documentation Index & Implementation Guide
-### Status: Active / Production Specs Locked
+# Operation E.D.I.T.H. v6.0.0 — Technical Specifications & Implementation Guide
+**Status:** ✅ Production Ready | Finalized | All Critical Bugs Fixed
 
-This directory contains the comprehensive, end-to-end technical specifications for **Operation E.D.I.T.H. v5 ("The Cognitive & Visual Exploitation Framework")**. These files serve as the single source of truth for the development, containerization, and deployment phases.
+This directory contains the comprehensive, end-to-end technical specifications for **Operation E.D.I.T.H. v6.0.0** — a sophisticated multi-act CTF challenge with perceptual gates, cryptographic verification layers, and strict anti-AI/anti-scraping constraints.
 
 ---
 

@@ -75,6 +75,9 @@ export default function DirectorTerminal() {
       "Clearance Level: DIRECTOR (HALE)",
       "Target Node: ws://localhost:8080/api/v1/admin/auth/ws",
       "",
+      "[!] PREREQUISITE: Resonance calibration must be completed first.",
+      "[!] Navigate to /calibrate and pass waveform alignment gate.",
+      "",
       "PHASE I: Initiate session and observe flash sequence.",
       "Type 'init' to begin Director authentication.",
       "Type 'help' to view available commands.",
@@ -92,14 +95,18 @@ export default function DirectorTerminal() {
 
   // Flash indicator animation (20 second cycle through 5 colors)
   useEffect(() => {
-    if (flashSequence.length === 0) return;
+    if (!flashSequence || flashSequence.length === 0) return;
 
     const cycleTime = 20000;  // 20 seconds total
     const colorDuration = cycleTime / flashSequence.length;
 
+    // Set initial color
+    setFlashIndicatorColor(flashSequence[0]);
+
     const interval = setInterval(() => {
       setFlashIndicatorColor((prev) => {
         const currentIdx = flashSequence.indexOf(prev);
+        if (currentIdx === -1) return flashSequence[0];
         const nextIdx = (currentIdx + 1) % flashSequence.length;
         return flashSequence[nextIdx];
       });
@@ -213,7 +220,14 @@ export default function DirectorTerminal() {
 
       if (!resp.ok) {
         const err = await resp.json();
-        addLog(`[-] Session init failed: ${err.error}`);
+        if (resp.status === 403 && err.error.includes("calibration")) {
+          addLog(`[-] CALIBRATION REQUIRED`);
+          addLog(`[-] You must complete the resonance calibration gate first.`);
+          addLog(`[-] Navigate to /calibrate and pass the waveform alignment challenge.`);
+          addLog(`[-] Then return here and try 'init' again.`);
+        } else {
+          addLog(`[-] Session init failed: ${err.error}`);
+        }
         return;
       }
 
@@ -381,7 +395,7 @@ export default function DirectorTerminal() {
         <section className="lg:col-span-8 flex flex-col h-[520px]">
           <div className="stark-panel-red p-5 flex flex-col h-full bg-black/95">
             <div className="flex justify-between items-center text-[10px] font-mono text-red-500/40 border-b border-red-500/10 pb-2 mb-3">
-              <span>NODE: ws://localhost:8080/api/v1/admin/auth/ws</span>
+              <span>NODE: {apiUrl.replace("http://", "ws://").replace("https://", "wss://")}/api/v1/admin/auth/ws</span>
               <span>STATE: {connected ? "CONNECTED" : "OFFLINE"}</span>
             </div>
             
@@ -442,36 +456,85 @@ export default function DirectorTerminal() {
             )}
           </div>
 
-          {/* Flash Sequence Indicator (Act II.5) */}
+          {/* Flash Sequence Indicator (Act IV Transcription Gate) */}
           {sessionInitialized && (
-            <div className="stark-panel-red p-5 hud-crosshair hud-crosshair-tl hud-crosshair-tr hud-crosshair-bl hud-crosshair-br flex flex-col items-center justify-center min-h-[160px]">
-              <h3 className="text-header text-[10px] text-red-500 font-black border-b border-red-500/20 pb-2 mb-4 w-full text-center tracking-widest">
-                FLASH CODE SEQUENCE
+            <div className="stark-panel-red p-4 hud-crosshair hud-crosshair-tl hud-crosshair-tr hud-crosshair-bl hud-crosshair-br flex flex-col gap-3">
+              <h3 className="text-header text-[10px] text-red-500 font-black border-b border-red-500/20 pb-2 text-center tracking-widest">
+                TRANSCRIBE FLASH SEQUENCE
               </h3>
-              <div className="flex flex-col items-center gap-4">
+
+              {/* Flash Indicator */}
+              <div className="flex flex-col items-center gap-3">
                 <div
-                  className="w-12 h-12 border-2 border-red-500/50 rounded-full transition-colors duration-100"
+                  className="w-16 h-16 border-4 border-red-500/50 rounded-full transition-colors duration-100 shadow-lg"
                   style={{
                     backgroundColor:
                       flashIndicatorColor === "R" ? "#ff0000" :
                       flashIndicatorColor === "G" ? "#00ff00" :
                       flashIndicatorColor === "B" ? "#0000ff" :
+                      "#ffff00",
+                    boxShadow: `0 0 20px ${
+                      flashIndicatorColor === "R" ? "#ff0000" :
+                      flashIndicatorColor === "G" ? "#00ff00" :
+                      flashIndicatorColor === "B" ? "#0000ff" :
                       "#ffff00"
+                    }40`
                   }}
                 />
-                <div className="text-xs font-mono text-slate-500 text-center">
-                  Current: <span className="text-red-400 font-bold">{flashIndicatorColor}</span>
+                <div className="text-[9px] font-mono text-slate-400">
+                  20-second cycle
                 </div>
+              </div>
+
+              {/* Sequence Tracker */}
+              <div className="bg-black/50 rounded border border-red-500/20 p-2">
+                <div className="text-[8px] text-red-500/60 font-mono mb-1">SEQUENCE OBSERVED:</div>
+                <div className="flex justify-center gap-1">
+                  {flashSequence.map((color, idx) => (
+                    <div
+                      key={idx}
+                      className="w-4 h-4 rounded border border-red-500/30 flex items-center justify-center text-[7px] font-bold"
+                      style={{
+                        backgroundColor:
+                          color === "R" ? "#ff0000" :
+                          color === "G" ? "#00ff00" :
+                          color === "B" ? "#0000ff" :
+                          "#ffff00",
+                        opacity: 0.7
+                      }}
+                    >
+                      {color}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Input & Reference Grid */}
+              <div className="space-y-2">
                 <input
                   type="text"
                   value={flashCodeInput}
                   onChange={(e) => setFlashCodeInput(e.target.value.toUpperCase())}
-                  placeholder="Transcribe HEX code..."
+                  placeholder="••"
                   maxLength="2"
-                  className="w-full bg-black border border-red-500/30 px-3 py-1.5 font-mono text-[10px] text-red-400 text-center"
+                  className="w-full bg-black border-2 border-red-500/50 px-3 py-2 font-mono text-sm text-red-400 text-center font-bold tracking-widest focus:border-red-500 focus:outline-none transition"
                 />
-                <div className="text-[9px] text-slate-500 text-center leading-tight">
-                  Color pairs → hex digits per grid
+
+                {/* Compact Reference Grid */}
+                <div className="bg-black/50 rounded border border-red-500/20 p-2">
+                  <div className="grid grid-cols-4 gap-1 text-[8px]">
+                    {[
+                      { pair: "R-R", code: "S" }, { pair: "R-G", code: "A" }, { pair: "R-B", code: "9" }, { pair: "R-Y", code: "M" },
+                      { pair: "G-R", code: "K" }, { pair: "G-G", code: "1" }, { pair: "G-B", code: "T" }, { pair: "G-Y", code: "E" },
+                      { pair: "B-R", code: "F" }, { pair: "B-G", code: "P" }, { pair: "B-B", code: "8" }, { pair: "B-Y", code: "V" },
+                      { pair: "Y-R", code: "Z" }, { pair: "Y-G", code: "U" }, { pair: "Y-B", code: "Q" }, { pair: "Y-Y", code: "W" },
+                    ].map((item, idx) => (
+                      <div key={idx} className="text-center">
+                        <div className="text-red-500/50 font-mono">{item.pair}</div>
+                        <div className="text-yellow-400 font-bold">{item.code}</div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
