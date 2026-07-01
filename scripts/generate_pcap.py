@@ -22,7 +22,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from backend.app.config import (
     DH_PRIME, DH_GENERATOR, DH_SERVER_PUBLIC, DH_SERVER_PRIVATE,
     DH_CLIENT_SEED, NETBIOS_ID, HOST_KEY, BUILD_EPOCH,
-    ZKP_N, ZKP_PUBLIC_KEYS, ZKP_K,
+    ZKP_N, ZKP_PUBLIC_KEYS, ZKP_K, EMPLOYEE_SECRET,
 )
 from backend.app.crypto import lcg_sequence
 
@@ -196,6 +196,55 @@ def generate_pcapng(output_path: str):
     cipher3 = encrypt_payload(decoy_key3, iv3, json3)
 
     # ══════════════════════════════════════════════════════════
+    # SESSION 4: DECOY (REYES-WORKSTATION) - Wrong ZKP parameters
+    # Phase D.5: 4th decoy packet with invalid ZKP N value
+    # ══════════════════════════════════════════════════════════
+    decoy_seed4 = binascii.crc32(b"REYES-WORKSTATION") ^ BUILD_EPOCH
+    decoy_lcg4 = lcg_sequence(decoy_seed4, 2)
+    decoy_private4 = (decoy_lcg4[0] << 32) | decoy_lcg4[1]
+    decoy_public4 = pow(DH_GENERATOR, decoy_private4, DH_PRIME)
+    decoy_shared4 = pow(DH_SERVER_PUBLIC, decoy_private4, DH_PRIME)
+    decoy_key4 = hashlib.sha256(decoy_shared4.to_bytes(64, 'big')).digest()
+
+    # Wrong ZKP parameters (different N, different public keys) - solver trap
+    wrong_p = 0xFFEEDEADBEEFCAFEBABEFACEDEADC0DEDEADBEEFCAFEBABEDEADBEEFCAFEBABE1
+    wrong_q = 0xDEADCAFEBABEFACEDEADC0DEDEADBEEFCAFEBABEDEADBEEFCAFEBABEFACED0D7
+    wrong_zkp_n = wrong_p * wrong_q
+    wrong_zkp_secrets = [
+        int.from_bytes(hashlib.sha256(EMPLOYEE_SECRET + i.to_bytes(1, 'big')).digest()[:8], 'big') % wrong_zkp_n
+        for i in range(ZKP_K)
+    ]
+    wrong_zkp_public = [pow(s, 2, wrong_zkp_n) for s in wrong_zkp_secrets]
+
+    session4_data = {
+        "packets": [
+            {
+                "type": "dh_client_hello",
+                "client_public": hex(decoy_public4),
+                "host": "edith-build-04.stark.internal",
+                "netbios_id": "REYES-WORKSTATION",
+                "timestamp": BUILD_EPOCH - 900,  # 15 mins before
+            },
+            {
+                "type": "zkp_params_observed_alternate",
+                "note": "Alternate ZKP parameters (decoy — modulus is composite of different primes)",
+                "N": hex(wrong_zkp_n),
+                "public_keys_v": [hex(v) for v in wrong_zkp_public],
+                "k": ZKP_K,
+                "alert": "WARNING: If you use these ZKP parameters, factorization will fail.",
+            },
+            {
+                "type": "http_response",
+                "status": 403,
+                "body": {"error": "ZKP verification failed"},
+            }
+        ]
+    }
+    json4 = json.dumps(session4_data, indent=2).encode()
+    iv4 = os.urandom(16)
+    cipher4 = encrypt_payload(decoy_key4, iv4, json4)
+
+    # ══════════════════════════════════════════════════════════
     # PCAPNG Structure Builder
     # ══════════════════════════════════════════════════════════
     # Section Header Block (SHB)
@@ -226,6 +275,7 @@ def generate_pcapng(output_path: str):
     epb1 = build_epb_block(iv1, cipher1, now_us - 7200 * 1000000)
     epb2 = build_epb_block(iv2, cipher2, now_us - 3600 * 1000000)
     epb3 = build_epb_block(iv3, cipher3, now_us - 1800 * 1000000)
+    epb4 = build_epb_block(iv4, cipher4, now_us - 900 * 1000000)  # 4th decoy (Phase D.5)
 
     # ── Write the pcapng file ──
     os.makedirs(os.path.dirname(output_path) if os.path.dirname(output_path) else ".", exist_ok=True)
@@ -235,12 +285,13 @@ def generate_pcapng(output_path: str):
         f.write(epb1)
         f.write(epb2)
         f.write(epb3)
+        f.write(epb4)  # 4th decoy with wrong ZKP parameters
 
     print(f"[+] HYDRA PCAP written to: {output_path}")
     print(f"    Active Client Private Key: {hex(client_private)}")
     print(f"    Active AES Key: {aes_key.hex()}")
     print(f"    Active IV: {iv2.hex()}")
-    print(f"    Packets generated: 3 sessions (decoy1, active2, decoy3)")
+    print(f"    Packets generated: 4 sessions (decoy1, active2, decoy3, decoy4-wrong-zkp)")
 
 
 def main():

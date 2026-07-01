@@ -128,6 +128,29 @@ for idx in range(48, 64):
 
 FRIDAYVM_BYTECODE = bytes(raw_bytecode)
 
+# Phase D.3: 4x4 Matrix for password verification (expanded from 3x3)
+# Matrix chosen such that det(M) mod 256 is odd (coprime to 256, invertible)
+# 4x4 matrix = 16 bytes stored row-major
+FRIDAYVM_MATRIX_4x4 = bytes([
+    0xA3, 0x1B, 0x5C, 0x27,  # Row 0: [163, 27, 92, 39]
+    0x4F, 0xD1, 0x2E, 0x73,  # Row 1: [79, 209, 46, 115]
+    0x8D, 0x6B, 0xC7, 0x1F,  # Row 2: [141, 107, 199, 31]
+    0x39, 0x94, 0x56, 0xAD,  # Row 3: [57, 148, 86, 173]
+])
+
+# Extended FridayVM pages for 4x4 matrix multiplication (Phase D.3)
+# Pages 4-5: Matrix multiplication logic
+FRIDAYVM_MATRIX_OPS = bytes([
+    0x01, 0x04, 0x00, 0x00, 0x00, 0x00,  # LOAD R4, 0 (accumulator)
+    0x01, 0x05, 0x04, 0x00, 0x00, 0x00,  # LOAD R5, 4 (matrix width)
+    0x05, 0x06, 0x06,                    # ADD R6, R6 (row pointer)
+    0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10,  # padding
+    0x05, 0x07, 0x07,                    # ADD R7, R7 (col pointer)
+    0x14, 0x14, 0x14, 0x14, 0x14, 0x14,  # padding
+])
+
+FRIDAYVM_EXTENDED_BYTECODE = FRIDAYVM_BYTECODE + FRIDAYVM_MATRIX_OPS + FRIDAYVM_MATRIX_4x4
+
 # Dead code: legacyTokenVerify() function with JWT alg-confusion vulnerability
 # This function is never called but is decompilable and appears to validate JWT tokens
 # by reading the unvalidated 'alg' header field — a classic JWT vulnerability.
@@ -169,7 +192,7 @@ STARK_EXE_CONTENT = (
     + b"\x00" * 12  # Rest of COFF header
     + ADVERSARIAL_SHIELD
     + b"\x00" * 64  # Padding
-    + FRIDAYVM_BYTECODE
+    + FRIDAYVM_EXTENDED_BYTECODE  # Expanded with 4x4 matrix (Phase D.3)
     + b"\x00" * 32  # Separator
     + LEGACY_JWT_VERIFIER
     + b"\x00" * 32  # Padding

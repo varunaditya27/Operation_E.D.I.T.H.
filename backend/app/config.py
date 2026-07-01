@@ -25,6 +25,11 @@ STATE_KEY = os.environ.get("STATE_KEY", "stark_audit_v5")  # salt for SCRP
 SBA_RC4_KEY = hashlib.md5(HOSTNAME.encode()).digest()  # 16 bytes
 
 # ──────────────────────────────────────────────
+# Act 0.6: Blueprint Alignment Offset (discovered via steganography)
+# ──────────────────────────────────────────────
+SHIFT_OFFSET = 427  # from visual blueprint alignment (Act 0.6)
+
+# ──────────────────────────────────────────────
 # Act I: Employee Secret (SPEC-ACT1-FRIDAYVM §2.1, updated in v6)
 # v6: employee_key = SHA256(machine_guid + str(build_epoch) + str(shift_offset))[:16]
 # The shift_offset is discovered via Act 0.6 blueprint alignment puzzle
@@ -56,7 +61,6 @@ DH_GENERATOR = 2
 # SHA256(NETBIOS_ID + HOST_KEY + BUILD_EPOCH) for stronger derivation
 _dh_client_seed_bytes = hashlib.sha256((NETBIOS_ID + HOST_KEY).encode() + str(BUILD_EPOCH).encode()).digest()[:8]
 DH_CLIENT_SEED = int.from_bytes(_dh_client_seed_bytes, 'big')
-SHIFT_OFFSET = 42  # from visual blueprint alignment (Act 0)
 
 # ──────────────────────────────────────────────
 # Act III: DH Server Private Key (moved to environment for security)
