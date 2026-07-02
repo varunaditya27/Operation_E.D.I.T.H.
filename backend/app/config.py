@@ -97,7 +97,7 @@ ZKP_PUBLIC_KEYS = [pow(s, 2, ZKP_N) for s in ZKP_SECRETS]
 # Act IV: Proof-of-Work config
 # ──────────────────────────────────────────────
 POW_PREFIX = "000000"  # 6 zero nibbles = 24 bits of work (~16M iterations)
-POW_TIMEOUT_MS = 3000  # 3 seconds per WS round for PoW computation
+POW_TIMEOUT_MS = 30000  # 30 seconds per WS message (relaxed for manual solving)
 
 # ──────────────────────────────────────────────
 # Act V: Flag (SPEC-ACT5-OPSDEPLOY §1.1)

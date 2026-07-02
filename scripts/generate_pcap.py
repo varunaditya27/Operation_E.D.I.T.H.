@@ -137,7 +137,7 @@ def generate_pcapng(output_path: str):
                 "status": 200,
                 "body": {
                     "nonce": "expired_hydra_nonce_a3f8c291",
-                    "expires_in": 90,
+                    "expires_in": 1800,
                 },
             },
             {

@@ -478,7 +478,9 @@ async def admin_auth_ws(websocket: WebSocket):
 
     await websocket.accept()
 
-    timeout = config.POW_TIMEOUT_MS / 1000.0  # 1.0 second
+    # Convert timeout from milliseconds to seconds
+    # Currently set to 30s for manual solving — adjust config.POW_TIMEOUT_MS to change
+    timeout = config.POW_TIMEOUT_MS / 1000.0
 
     try:
         # ─── Step 1: Server Init ───
