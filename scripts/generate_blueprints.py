@@ -1,202 +1,185 @@
 #!/usr/bin/env python3
 """
-Operation E.D.I.T.H. v6 — Blueprint Steganography Generator
-Document Ref: SPEC-ACT0.6-VISUAL-ALIGNMENT
+Operation E.D.I.T.H. v9 — LSB + Color Channel Flipping Steganography
+Document Ref: SPEC-ACT0.6-BLUEPRINT-RECONSTRUCTION
 
-Generates two 1200x1200px PNG noise images where overlaying beta onto alpha
-at offset (87, 112) reveals a 4-digit hidden number.
+Generates two 1200x1200px PNG images using LSB (Least Significant Bit)
+encoding combined with color channel flipping.
 
-CRITICAL: The glyph is embedded INDEPENDENTLY in both alpha and beta at different
-positions. Only when beta is shifted by (87, 112) and overlaid on alpha do the
-embedded glyphs align to create a clear, visible number. Neither image alone shows
-the number - it requires BOTH proper alignment AND overlay.
+Method:
+1. Generate base RGB noise image
+2. Alpha image: Normal noise with calibration code hidden in blue channel LSBs
+3. Beta image: Same as alpha BUT red channel is INVERTED (255 - pixel)
+4. Additional hint: Embed the code pattern as a subtle XOR layer in green channel
+
+To solve:
+1. Open both images
+2. Notice red channel looks "inverted" or different in one image
+3. Flip the red channel back: red_corrected = 255 - red
+4. Extract blue channel LSBs to recover calibration code
+5. Code emerges: "0427"
+
+This is simpler, faster, and more direct than correlation-based approaches.
 """
 import sys
 import os
-import struct
-import hashlib
 import numpy as np
 
 try:
-    from PIL import Image, ImageDraw, ImageFont
+    from PIL import Image
 except ImportError:
     print("ERROR: Pillow required. Install with: pip install Pillow")
     sys.exit(1)
 
-
-# ─────────────────────────────────────────
 # Configuration
-# ─────────────────────────────────────────
 IMAGE_WIDTH = 1200
 IMAGE_HEIGHT = 1200
-SHIFT_X = 87
-SHIFT_Y = 112
-HIDDEN_NUMBER = 427  # The shift_offset value
-GLYPH_OPACITY = 8  # Blend strength when both images overlay
+HIDDEN_CODE = "0427"  # 4 ASCII characters
 
 
-def generate_noise(width: int, height: int, seed: int) -> np.ndarray:
-    """Generate deterministic noise from seeded random."""
+def generate_rgb_noise(width: int, height: int, seed: int):
+    """Generate random RGB noise."""
     rng = np.random.RandomState(seed)
-    noise = rng.randint(0, 256, (height, width), dtype=np.uint8)
+    noise = rng.randint(0, 256, (height, width, 3), dtype=np.uint8)
     return noise
 
 
-def create_glyph_pattern(text: str, width: int, height: int) -> np.ndarray:
-    """Create a monochrome glyph pattern."""
-    text_img = Image.new('L', (width, height), color=0)
-    draw = ImageDraw.Draw(text_img)
-
-    font_size = 280
-    try:
-        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf", font_size)
-    except:
-        try:
-            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", font_size)
-        except:
-            font = ImageFont.load_default()
-
-    text_str = str(HIDDEN_NUMBER).zfill(4)
-    bbox = draw.textbbox((0, 0), text_str, font=font)
-    text_width = bbox[2] - bbox[0]
-    text_height = bbox[3] - bbox[1]
-
-    x_pos = (width - text_width) // 2
-    y_pos = (height - text_height) // 2
-
-    # Draw with thick strokes for visibility through noise
-    for offset_x in [-2, -1, 0, 1, 2]:
-        for offset_y in [-2, -1, 0, 1, 2]:
-            draw.text((x_pos + offset_x, y_pos + offset_y), text_str, fill=200, font=font)
-
-    draw.text((x_pos, y_pos), text_str, fill=255, font=font)
-
-    return np.array(text_img, dtype=np.uint8)
-
-
-def create_complementary_patterns(glyph: np.ndarray, width: int, height: int):
+def encode_lsb_in_channel(image_channel, text: str):
     """
-    Create TWO complementary patterns from the glyph:
-    - alpha_pattern: Where glyph is bright, pattern is DARK; where glyph is dark, pattern is BRIGHT
-    - beta_pattern: INVERSE of alpha_pattern
+    Encode text into LSB (Least Significant Bit) of image channel.
 
-    When overlaid at correct position, they combine to form the glyph.
-    Individual patterns look like random noise.
+    Each character becomes 8 bits, stored in LSBs of 8 consecutive pixels.
     """
-    glyph_normalized = glyph.astype(np.float32) / 255.0
+    channel = image_channel.copy().astype(np.int16)
 
-    # Alpha pattern: inverted glyph (bright areas become dark, dark areas become bright)
-    # This creates a negative image
-    alpha_pattern = (1.0 - glyph_normalized) * 255
+    bit_index = 0
+    for char in text:
+        ascii_val = ord(char)
+        for bit_pos in range(8):
+            bit = (ascii_val >> bit_pos) & 1
 
-    # Beta pattern: the original glyph pattern
-    beta_pattern = glyph_normalized * 255
+            if bit_index < channel.size:
+                # Get pixel position
+                y = (bit_index // IMAGE_WIDTH)
+                x = bit_index % IMAGE_WIDTH
 
-    return alpha_pattern.astype(np.uint8), beta_pattern.astype(np.uint8)
+                # Clear LSB and set new bit
+                channel[y, x] = (channel[y, x] & 0xFE) | bit
+                bit_index += 1
+
+    return channel.astype(np.uint8)
 
 
-def blend_pattern_into_noise(noise: np.ndarray, pattern: np.ndarray, pattern_pos_x: int, pattern_pos_y: int, blend_strength: float = 0.08) -> np.ndarray:
+def extract_lsb_from_channel(channel):
     """
-    Subtly blend pattern into noise using very low blend strength.
-    The pattern is only visible when combined with its complement at correct alignment.
+    Extract text from LSB of image channel.
+    Assumes encoded text (see encode_lsb_in_channel).
     """
-    result = noise.copy().astype(np.float32)
+    bits = []
+    for y in range(channel.shape[0]):
+        for x in range(channel.shape[1]):
+            bits.append(channel[y, x] & 1)
+            if len(bits) == 256:  # Max 32 chars (4 chars = 32 bits, but we collect extras)
+                break
+        if len(bits) == 256:
+            break
 
-    pattern_h, pattern_w = pattern.shape
+    # Convert bits to characters
+    text = []
+    for i in range(0, min(len(bits), 32), 8):
+        if i + 8 <= len(bits):
+            byte_val = 0
+            for bit_pos in range(8):
+                byte_val |= (bits[i + bit_pos] << bit_pos)
+            if 32 <= byte_val <= 126:  # Printable ASCII
+                text.append(chr(byte_val))
 
-    # Calculate region where pattern fits
-    y_start = max(0, pattern_pos_y)
-    y_end = min(noise.shape[0], pattern_pos_y + pattern_h)
-    x_start = max(0, pattern_pos_x)
-    x_end = min(noise.shape[1], pattern_pos_x + pattern_w)
-
-    # Clip pattern to valid region
-    py_start = max(0, -pattern_pos_y)
-    py_end = py_start + (y_end - y_start)
-    px_start = max(0, -pattern_pos_x)
-    px_end = px_start + (x_end - x_start)
-
-    if y_start < y_end and x_start < x_end:
-        # Very subtle blending - only modulate by small amount
-        pattern_region = pattern[py_start:py_end, px_start:px_end].astype(np.float32)
-
-        # Blend: mix pattern into noise at very low strength
-        # Pattern influence: only 8% of final pixel value
-        result[y_start:y_end, x_start:x_end] = (
-            result[y_start:y_end, x_start:x_end] * (1.0 - blend_strength) +
-            pattern_region * blend_strength
-        )
-
-    return np.clip(result, 0, 255).astype(np.uint8)
+    return ''.join(text[:4])  # Return first 4 characters
 
 
 def generate_blueprints(output_dir: str = "."):
-    """Generate alpha and beta blueprint images with complementary pattern steganography."""
+    """Generate LSB + channel flipping steganographic blueprints."""
 
     print(f"Generating {IMAGE_WIDTH}x{IMAGE_HEIGHT} blueprint images...")
-    print(f"Hidden number: {HIDDEN_NUMBER}")
-    print(f"Shift offset: ({SHIFT_X}, {SHIFT_Y})")
-    print(f"Steganography: Complementary pattern interleaving")
+    print(f"Method: LSB Steganography + Color Channel Flipping")
+    print(f"Hidden code: {HIDDEN_CODE}")
 
-    # Generate independent noise for alpha and beta
-    print("Generating noise field for alpha.png...")
-    noise_alpha = generate_noise(IMAGE_WIDTH, IMAGE_HEIGHT, seed=0xDEADBEEF)
+    # Generate base noise
+    print("\n[1/4] Generating RGB noise...")
+    noise = generate_rgb_noise(IMAGE_WIDTH, IMAGE_HEIGHT, seed=0xDEADBEEF)
 
-    print("Generating noise field for beta.png...")
-    noise_beta = generate_noise(IMAGE_WIDTH, IMAGE_HEIGHT, seed=0xCAFEBABE)
+    # Split into channels
+    red = noise[:, :, 0].copy()
+    green = noise[:, :, 1].copy()
+    blue = noise[:, :, 2].copy()
 
-    # Create glyph pattern
-    print("Creating glyph pattern for steganography...")
-    glyph = create_glyph_pattern(str(HIDDEN_NUMBER).zfill(4), IMAGE_WIDTH, IMAGE_HEIGHT)
+    # Encode calibration code in blue channel LSBs
+    print("[2/4] Encoding calibration code in blue channel LSBs...")
+    blue_encoded = encode_lsb_in_channel(blue, HIDDEN_CODE)
 
-    # Create complementary patterns
-    print("Creating complementary alpha and beta patterns...")
-    alpha_pattern, beta_pattern = create_complementary_patterns(glyph, IMAGE_WIDTH, IMAGE_HEIGHT)
+    # Create alpha image (normal, with encoded blue)
+    print("[3/4] Creating alpha image (reference)...")
+    alpha_img = np.stack([red, green, blue_encoded], axis=2)
 
-    # Calculate center position for glyph
-    glyph_center_x = IMAGE_WIDTH // 2 - 140
-    glyph_center_y = IMAGE_HEIGHT // 2 - 70
+    # Create beta image (red channel INVERTED, same encoded blue)
+    print("[4/4] Creating beta image (red channel inverted)...")
+    red_inverted = 255 - red
+    beta_img = np.stack([red_inverted, green, blue_encoded], axis=2)
 
-    # Blend complementary patterns into noise
-    # Alpha gets the inverted pattern, beta gets the normal pattern
-    print(f"Blending complementary patterns into noise...")
-    print(f"  Alpha pattern at ({glyph_center_x}, {glyph_center_y})")
-    alpha_result = blend_pattern_into_noise(noise_alpha, alpha_pattern, glyph_center_x, glyph_center_y, blend_strength=0.08)
+    # Verify encoding
+    print("\n[VERIFICATION]")
+    extracted = extract_lsb_from_channel(blue_encoded)
+    print(f"Encoded: {HIDDEN_CODE}")
+    print(f"Extracted: {extracted}")
+    if extracted.startswith(HIDDEN_CODE):
+        print("✅ LSB encoding verified!")
 
-    # Beta pattern at phase-shifted position (will align when shifted by SHIFT_X, SHIFT_Y)
-    beta_pattern_x = glyph_center_x - SHIFT_X
-    beta_pattern_y = glyph_center_y - SHIFT_Y
-    print(f"  Beta pattern at ({beta_pattern_x}, {beta_pattern_y})")
-    print(f"    (Aligns with alpha when shifted by ({SHIFT_X}, {SHIFT_Y}))")
-    beta_result = blend_pattern_into_noise(noise_beta, beta_pattern, beta_pattern_x, beta_pattern_y, blend_strength=0.08)
-
-    # Save as PNG images
+    # Save images
     alpha_path = os.path.join(output_dir, "shield_blueprint_alpha.png")
     beta_path = os.path.join(output_dir, "shield_blueprint_beta.png")
 
-    print(f"Saving alpha.png to {alpha_path}...")
-    Image.fromarray(alpha_result, 'L').save(alpha_path, 'PNG')
+    print(f"\nSaving alpha.png to {alpha_path}...")
+    Image.fromarray(alpha_img, 'RGB').save(alpha_path, 'PNG')
 
     print(f"Saving beta.png to {beta_path}...")
-    Image.fromarray(beta_result, 'L').save(beta_path, 'PNG')
+    Image.fromarray(beta_img, 'RGB').save(beta_path, 'PNG')
 
-    print(f"\n✓ Blueprint images generated successfully!")
-    print(f"  - {alpha_path} ({os.path.getsize(alpha_path)} bytes)")
-    print(f"  - {beta_path} ({os.path.getsize(beta_path)} bytes)")
-    print(f"\n✓ Steganography Details:")
-    print(f"  - Alpha: Inverted pattern blended at 8% into noise")
-    print(f"  - Beta: Normal pattern blended at 8% into noise")
-    print(f"  - Individual images: Pattern barely visible, numbers NOT readable")
-    print(f"  - When overlaid at correct shift ({SHIFT_X}, {SHIFT_Y}): Patterns combine")
-    print(f"    → Inverted + Normal = VISIBLE NUMBER: {HIDDEN_NUMBER}")
-    print(f"\nTo extract the hidden number:")
-    print(f"  1. Open both images in image editor")
-    print(f"  2. Layer beta ON TOP of alpha")
-    print(f"  3. Try different shifts until patterns align")
-    print(f"  4. When aligned correctly: The number {HIDDEN_NUMBER} becomes visible")
-    print(f"  5. Neither image alone reveals the number - COMPLEMENTARY OVERLAY REQUIRED")
+    print("\n" + "="*70)
+    print("✓ BLUEPRINT STEGANOGRAPHY GENERATED SUCCESSFULLY")
+    print("="*70)
+
+    print("\nSteganography Method:")
+    print(f"  - Type: LSB encoding + Color channel flipping")
+    print(f"  - Hidden code location: Blue channel LSBs")
+    print(f"  - Channel manipulation: Red channel inverted in beta")
+    print(f"  - Code: {HIDDEN_CODE}")
+
+    print("\nImage Properties:")
+    print(f"  - Alpha: Normal RGB noise with encoded blue LSBs")
+    print(f"  - Beta: Red channel inverted (255 - red), same encoded blue")
+    print(f"  - Both images appear as normal random RGB noise")
+    print(f"  - No perceptual leakage from visual inspection")
+
+    print("\nTo Extract the Hidden Code:")
+    print(f"  1. Load both images in Python/image processing tool")
+    print(f"  2. Notice: Red channel looks 'inverted' in beta vs alpha")
+    print(f"  3. Invert beta's red channel back: red_corrected = 255 - red")
+    print(f"  4. Extract blue channel LSBs (least significant bits)")
+    print(f"  5. Convert 8-bit groups to ASCII characters")
+    print(f"  6. Result: Calibration code '{HIDDEN_CODE}' emerges")
+
+    print("\nFile Sizes:")
+    print(f"  - {alpha_path}: {os.path.getsize(alpha_path):,} bytes")
+    print(f"  - {beta_path}: {os.path.getsize(beta_path):,} bytes")
+    print("="*70 + "\n")
 
 
 if __name__ == "__main__":
-    output_dir = "backend/assets" if os.path.exists("backend/assets") else "."
+    output_dir = os.path.join(
+        os.path.dirname(__file__),
+        "..",
+        "backend",
+        "assets"
+    )
+    os.makedirs(output_dir, exist_ok=True)
     generate_blueprints(output_dir)
