@@ -53,7 +53,8 @@ export default function Home() {
           await calculateBlinkSequence(data.timestamp, data.salt);
         }
       } catch (err) {
-        setFeedback("Failed to fetch challenge. Check your connection.");
+        console.error("Challenge initialization failed:", err);
+        setFeedback(err.message || String(err));
       }
     };
 
