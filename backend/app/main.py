@@ -187,12 +187,12 @@ async def verify_auth(request: Request):
 
     # Issue session token
     session_token = f"sess_{secrets.token_hex(12)}"
-    database.create_session(session_token, username, ttl=600)
+    database.create_session(session_token, username, ttl=1800)
 
     return {
         "status": "success",
         "session_token": session_token,
-        "expires_in": 90,
+        "expires_in": 1800,
     }
 
 
@@ -486,7 +486,7 @@ async def admin_auth_ws(websocket: WebSocket):
         captcha_text, captcha_image = generate_captcha()
 
         # Store nonce
-        database.create_nonce(nonce, ttl=90)
+        database.create_nonce(nonce, ttl=1800)
 
         await websocket.send_json({
             "event": "server_init",

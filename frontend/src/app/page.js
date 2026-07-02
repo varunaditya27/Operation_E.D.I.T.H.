@@ -47,7 +47,7 @@ export default function Home() {
           const data = await res.json();
           setChallengeData(data);
           setChallengeId(data.challenge_id);
-          setTimeRemaining(600);
+          setTimeRemaining(1800);
           // Use blink sequence from backend response
           setBlinkSequence(data.blink_sequence || []);
         }
@@ -103,7 +103,7 @@ export default function Home() {
         const data = await res.json();
         setChallengeData(data);
         setChallengeId(data.challenge_id);
-        setTimeRemaining(600);
+        setTimeRemaining(1800);
         // Use blink sequence from backend response
         setBlinkSequence(data.blink_sequence || []);
       }

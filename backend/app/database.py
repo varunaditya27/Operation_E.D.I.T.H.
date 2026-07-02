@@ -89,7 +89,7 @@ def init_db():
 # Nonce Management (Acts II/IV)
 # ──────────────────────────────────────────
 
-def create_nonce(nonce: str, ttl: int = 90):
+def create_nonce(nonce: str, ttl: int = 1800):
     """Insert a fresh nonce with a TTL."""
     conn = _get_conn()
     now = int(time.time())
@@ -153,7 +153,7 @@ def get_and_consume_challenge(challenge_id: str) -> dict | None:
 # Session Management (Act II)
 # ──────────────────────────────────────────
 
-def create_session(session_token: str, username: str, ttl: int = 90):
+def create_session(session_token: str, username: str, ttl: int = 1800):
     """Create an authenticated session."""
     conn = _get_conn()
     now = int(time.time())
