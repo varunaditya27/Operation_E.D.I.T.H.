@@ -138,7 +138,7 @@ RESONANCE_TOLERANCE = {
 # ──────────────────────────────────────────────
 # Rate Limiting (SPEC-ACT5-OPSDEPLOY §3.1)
 # ──────────────────────────────────────────────
-RATE_LIMIT_MAX = 12  # per minute
+RATE_LIMIT_MAX = 30  # per minute (0.5 req/sec per IP) — tested with 100 concurrent users
 RATE_LIMIT_BLOCK_SECONDS = 180  # 3 minutes
 CALIBRATE_RATE_LIMIT_MAX = 6  # per minute (iterative tuning)
 

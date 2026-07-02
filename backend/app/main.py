@@ -137,8 +137,7 @@ async def internal_health(request: Request):
 @app.get("/api/v1/auth/challenge")
 async def get_challenge(request: Request, username: str = "mreyes"):
     """Issue a SCRP challenge."""
-    # Disabled for load testing — re-enable for production
-    # _check_rate(request)
+    _check_rate(request)
     challenge = crypto.generate_challenge()
     challenge_id = secrets.token_hex(8)
     ts = int(time.time())
@@ -160,8 +159,7 @@ async def get_challenge(request: Request, username: str = "mreyes"):
 @app.post("/api/v1/auth/verify")
 async def verify_auth(request: Request):
     """Verify SCRP response + blink code."""
-    # Disabled for load testing — re-enable for production
-    # _check_rate(request)
+    _check_rate(request)
     body = await request.json()
 
     username = body.get("username", "")
