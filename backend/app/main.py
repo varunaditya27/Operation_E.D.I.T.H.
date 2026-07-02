@@ -41,11 +41,23 @@ app.add_middleware(
 )
 
 
+async def cleanup_task():
+    """Background task: clean up expired data every 5 minutes."""
+    while True:
+        try:
+            await asyncio.sleep(300)  # 5 minutes
+            database.cleanup_expired_data()
+        except Exception as e:
+            print(f"[!] Cleanup task error: {e}")
+
+
 @app.on_event("startup")
 async def startup():
     database.init_db()
     # Pre-encrypt the flag for this server instance
     app.state.hydra_boot_time = int(time.time())
+    # Start background cleanup task
+    asyncio.create_task(cleanup_task())
 
 
 # ══════════════════════════════════════════════════════════

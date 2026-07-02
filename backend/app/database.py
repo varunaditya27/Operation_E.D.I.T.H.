@@ -25,6 +25,14 @@ def _get_conn() -> sqlite3.Connection:
 def init_db():
     """Initialize database tables per SPEC-ACT5-OPSDEPLOY §2.2."""
     conn = _get_conn()
+
+    # Enable WAL mode and optimize for concurrent reads/writes
+    # WAL (Write-Ahead Logging) allows readers and writers to coexist
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA synchronous=NORMAL")
+    conn.execute("PRAGMA busy_timeout=5000")
+    conn.execute("PRAGMA cache_size=10000")
+
     conn.executescript("""
         CREATE TABLE IF NOT EXISTS issued_nonces (
             nonce TEXT PRIMARY KEY,
@@ -312,5 +320,36 @@ def validate_and_consume_pcap_token(token: str) -> bool:
         "UPDATE pcap_tokens SET used = 1 WHERE token = ?",
         (token,)
     )
+    conn.commit()
+    return True
+
+
+# ──────────────────────────────────────────
+# Cleanup & Maintenance
+# ──────────────────────────────────────────
+
+def cleanup_expired_data():
+    """Remove expired sessions, nonces, challenges, and rate-limit entries.
+
+    Call this periodically (e.g., every 5 minutes) to keep database compact.
+    """
+    conn = _get_conn()
+    now = int(time.time())
+
+    # Delete expired nonces
+    conn.execute("DELETE FROM issued_nonces WHERE expires_at < ?", (now,))
+
+    # Delete expired sessions
+    conn.execute("DELETE FROM auth_sessions WHERE expires_at < ?", (now,))
+
+    # Delete expired challenges
+    conn.execute("DELETE FROM challenges WHERE created_at + 1800 < ?", (now,))
+
+    # Delete old rate-limit entries (older than 1 hour)
+    conn.execute("DELETE FROM rate_limits WHERE window_start < ?", (now - 3600,))
+
+    # Delete consumed PCAP tokens older than 1 hour (they're single-use anyway)
+    conn.execute("DELETE FROM pcap_tokens WHERE used = 1 AND created_at < ?", (now - 3600,))
+
     conn.commit()
     return True
