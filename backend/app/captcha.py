@@ -24,8 +24,8 @@ CAPTCHA_LENGTH = 4
 
 
 def _wave_distort(image: "Image.Image") -> "Image.Image":
-    """Apply sinusoidal wave warping per SPEC-ACT4-ZKPWS §2.1:
-    x' = x + 4*sin(y/6), y' = y + 2*cos(x/4)
+    """Apply light sinusoidal wave warping (reduced from SPEC for OCR compatibility):
+    x' = x + 1*sin(y/8), y' = y + 1*cos(x/6)
     """
     width, height = image.size
     pixels = image.load()
@@ -34,8 +34,8 @@ def _wave_distort(image: "Image.Image") -> "Image.Image":
 
     for y in range(height):
         for x in range(width):
-            src_x = int(x + 4 * math.sin(y / 6.0))
-            src_y = int(y + 2 * math.cos(x / 4.0))
+            src_x = int(x + 1 * math.sin(y / 8.0))  # Reduced amplitude from 4 to 1
+            src_y = int(y + 1 * math.cos(x / 6.0))  # Reduced amplitude from 2 to 1
             if 0 <= src_x < width and 0 <= src_y < height:
                 new_pixels[x, y] = pixels[src_x, src_y]
 
@@ -78,13 +78,13 @@ def generate_captcha() -> tuple[str, str]:
         draw.text((x_offset, 8 + y_offset), char, fill=color, font=font)
         x_offset += 30 + random.randint(-3, 3)
 
-    # Add 5 random bezier-like curves (lines with noise)
-    for _ in range(5):
+    # Add 2 random bezier-like curves (reduced from 5 for OCR compatibility)
+    for _ in range(2):
         x1 = random.randint(0, CAPTCHA_WIDTH // 3)
         y1 = random.randint(0, CAPTCHA_HEIGHT)
         x2 = random.randint(CAPTCHA_WIDTH * 2 // 3, CAPTCHA_WIDTH)
         y2 = random.randint(0, CAPTCHA_HEIGHT)
-        mid_x = (x1 + x2) // 2 + random.randint(-20, 20)
+        mid_x = (x1 + x2) // 2 + random.randint(-10, 10)  # Reduced jitter from ±20 to ±10
         mid_y = random.randint(0, CAPTCHA_HEIGHT)
         line_color = (
             random.randint(80, 180),
@@ -93,8 +93,8 @@ def generate_captcha() -> tuple[str, str]:
         )
         draw.line([(x1, y1), (mid_x, mid_y), (x2, y2)], fill=line_color, width=1)
 
-    # Add random dots for noise
-    for _ in range(100):
+    # Add random dots for noise (reduced from 100 to 30 for OCR compatibility)
+    for _ in range(30):
         x = random.randint(0, CAPTCHA_WIDTH - 1)
         y = random.randint(0, CAPTCHA_HEIGHT - 1)
         draw.point((x, y), fill=(
@@ -103,8 +103,8 @@ def generate_captcha() -> tuple[str, str]:
             random.randint(50, 200),
         ))
 
-    # Apply shear transform
-    shear_factor = random.uniform(-0.3, 0.3)
+    # Apply shear transform (reduced from ±0.3 to ±0.1 for OCR compatibility)
+    shear_factor = random.uniform(-0.1, 0.1)
     img = img.transform(
         (CAPTCHA_WIDTH, CAPTCHA_HEIGHT),
         Image.AFFINE,
@@ -112,11 +112,11 @@ def generate_captcha() -> tuple[str, str]:
         resample=Image.BILINEAR,
     )
 
-    # Apply wave distortion
+    # Apply light wave distortion
     img = _wave_distort(img)
 
-    # Slight blur
-    img = img.filter(ImageFilter.GaussianBlur(radius=0.5))
+    # Minimal blur for OCR readability
+    img = img.filter(ImageFilter.GaussianBlur(radius=0.2))
 
     # Encode to base64
     buf = io.BytesIO()
