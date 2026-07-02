@@ -20,8 +20,6 @@ const GRID_MATRIX = [
   { pair: "Y-R", code: "Z" }, { pair: "Y-G", code: "U" }, { pair: "Y-B", code: "Q" }, { pair: "Y-Y", code: "W" },
 ];
 
-const BLINK_COLORS = ["R", "G", "B", "Y"];
-
 export default function Home() {
   const router = useRouter();
   const [username, setUsername] = useState("mreyes");
@@ -50,7 +48,8 @@ export default function Home() {
           setChallengeData(data);
           setChallengeId(data.challenge_id);
           setTimeRemaining(600);
-          await calculateBlinkSequence(data.timestamp, data.salt);
+          // Use blink sequence from backend response
+          setBlinkSequence(data.blink_sequence || []);
         }
       } catch (err) {
         console.error("Challenge initialization failed:", err);
@@ -105,33 +104,12 @@ export default function Home() {
         setChallengeData(data);
         setChallengeId(data.challenge_id);
         setTimeRemaining(600);
-        await calculateBlinkSequence(data.timestamp, data.salt);
+        // Use blink sequence from backend response
+        setBlinkSequence(data.blink_sequence || []);
       }
     } catch (err) {
       setFeedback("Failed to fetch challenge. Check your connection.");
     }
-  };
-
-  // Calculate blink sequence based on challenge (stable for entire 30-miinute window)
-  const calculateBlinkSequence = async (timestamp, salt) => {
-    // Compute 30-minute window (matches backend BLINK_ROTATE_INTERVAL=1800)
-    const window = Math.floor(timestamp / 1800);
-    const seed_str = `${salt}:${window}`;
-
-    // SHA256 hash (matches backend crypto.py:generate_blink_sequence)
-    const encoder = new TextEncoder();
-    const data = encoder.encode(seed_str);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-
-    const seq = [];
-    const colors = BLINK_COLORS;
-    for (let i = 0; i < 6; i++) {
-      // Extract each byte from SHA256 hash
-      const byte = hashArray[i];
-      seq.push(colors[byte % colors.length]);
-    }
-    setBlinkSequence(seq);
   };
 
 

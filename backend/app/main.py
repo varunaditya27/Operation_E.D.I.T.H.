@@ -132,11 +132,15 @@ async def get_challenge(request: Request, username: str = "mreyes"):
 
     database.store_challenge(challenge_id, challenge, username)
 
+    # Generate blink sequence server-side to avoid browser crypto API issues over HTTP
+    blink_sequence = crypto.generate_blink_sequence(ts, config.STATE_KEY)
+
     return {
         "challenge_id": challenge_id,
         "challenge": challenge,
         "salt": config.STATE_KEY,
         "timestamp": ts,
+        "blink_sequence": blink_sequence,
     }
 
 
