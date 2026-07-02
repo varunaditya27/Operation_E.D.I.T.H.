@@ -16,10 +16,11 @@ import statistics
 from typing import Optional
 
 # Configuration
-BASE_URL = "http://localhost:8000"
-WS_BASE = "ws://localhost:8000"
+import os
+BASE_URL = os.environ.get("TEST_URL", "http://134.209.148.23")
+WS_BASE = BASE_URL.replace("http://", "ws://").replace("https://", "wss://")
 NUM_USERS = 100
-THINK_TIME = 0.1  # Reduced for load testing
+THINK_TIME = 0.05  # Reduced for load testing
 
 # From config
 MACHINE_GUID = "7948eaa2-7dfd-417d-8fb4-f8b9e2a930e3"
@@ -200,6 +201,10 @@ async def test_zkp_connection(token: str) -> bool:
 
 async def user_workflow(user_id: int):
     """Simulate one user's complete workflow."""
+    # Stagger user start times: spread 100 users over ~2 seconds to avoid rate limit spike
+    stagger_delay = (user_id / NUM_USERS) * 2.0
+    await asyncio.sleep(stagger_delay)
+
     connector = aiohttp.TCPConnector(limit=100)
     async with aiohttp.ClientSession(connector=connector) as session:
         # Step 1: Get challenge
