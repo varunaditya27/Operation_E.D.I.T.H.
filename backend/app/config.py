@@ -13,6 +13,8 @@ import binascii
 # ──────────────────────────────────────────────
 MACHINE_GUID = os.environ.get("MACHINE_GUID", "7948eaa2-7dfd-417d-8fb4-f8b9e2a930e3")
 BUILD_EPOCH = int(os.environ.get("BUILD_EPOCH", "1781259200"))
+# CRITICAL: Must match the build server hostname from SBA logs.
+# The Stark Industries build infrastructure used this hostname for RC4 key derivation.
 HOSTNAME = "edith-build-04.stark.internal"
 NETBIOS_ID = "REYES-LAPTOP"
 HOST_KEY = "STARK-FALLBACK-KEY-2026"
@@ -21,6 +23,7 @@ STATE_KEY = os.environ.get("STATE_KEY", "stark_audit_v5")  # salt for SCRP
 # ──────────────────────────────────────────────
 # Act 0: SBA Encryption Key (SPEC-ACT0-SBA §4.1)
 # Key = MD5(hostname) as raw bytes (first 16 bytes of digest)
+# CRITICAL: RC4 key MUST match the fallback hostname used during SBA generation
 # ──────────────────────────────────────────────
 SBA_RC4_KEY = hashlib.md5(HOSTNAME.encode()).digest()  # 16 bytes
 

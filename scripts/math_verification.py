@@ -33,7 +33,7 @@ def stark_rc4(data: bytes, key: bytes) -> bytes:
 
 def verify_act0():
     print("[Act 0] Verifying Stark-RC4 Encryption...")
-    hostname = "localhost.localdomain"
+    hostname = "edith-build-04.stark.internal"
     rc4_key = hashlib.md5(hostname.encode()).digest()
     
     plaintext = b"STARK_PROJECT_EDITH_FALLBACK_ACTIVE"

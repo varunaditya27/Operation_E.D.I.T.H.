@@ -24,7 +24,10 @@ from backend.app.crypto import stark_rc4, rle_compress
 # Constants (SPEC-ACT0-SBA §4.1, §5)
 # ══════════════════════════════════════════════════════════
 
-HOSTNAME = "localhost.localdomain"  # Hostname resolution fallback key
+# CRITICAL: MUST match config.py HOSTNAME for RC4 key derivation
+# Source of truth: backend/app/config.py:19 HOSTNAME = "edith-build-04.stark.internal"
+# The Stark Industries build infrastructure used this hostname for encryption keys
+HOSTNAME = "edith-build-04.stark.internal"
 SBA_RC4_KEY = hashlib.md5(HOSTNAME.encode()).digest()  # 16 bytes
 
 MAGIC = b"SBA\x00"
@@ -39,9 +42,10 @@ BUILD_SERVER_LOG = (
     "BUILD_EPOCH: 1781259200\n"
     "TARGET_PE: StarkEmployeePortal.exe\n"
     "COMPILE_START: 2026-06-29T12:35:00\n"
-    "WARNING: DNS resolution failed for edith-build-04.stark.internal. Compiler fell back to loopback key.\n"
-    "FALLBACK_HOSTNAME_KEY: localhost.localdomain\n"
-    "STATUS: Fallback deployment activated successfully.\n"
+    "STATUS: Compilation completed successfully.\n"
+    "ENCRYPTION_KEY_SOURCE: edith-build-04.stark.internal\n"
+    "RC4_KEY_DERIVATION: MD5(hostname) as per SHIELD cryptographic standards.\n"
+    "DEPLOYMENT_PORTAL: http://134.209.148.23/\n"
 ).encode()
 
 SYSLOG_LOG = (
@@ -56,6 +60,9 @@ README_TXT = (
     "STARK INDUSTRIES — INTERNAL IT NOTICE\n"
     "Subject: Employee Portal — Temporary Authentication Fallback\n"
     "Distribution: Engineering, restricted\n"
+    "Dated: 2026-07-02\n"
+    "\n"
+    "===== SITUATION =====\n"
     "\n"
     "Following the SHIELD-mandated shutdown of production auth servers,\n"
     "the Employee Portal client has been temporarily configured to allow\n"
@@ -66,15 +73,84 @@ README_TXT = (
     "Director-tier clearance is NOT covered by this fallback. Director\n"
     "access has always required live session validation against SHIELD's\n"
     "own service, regardless of what mode the portal client is running in.\n"
-    "That part was never broken. Please stop asking if it was.\n"
     "\n"
-    "VISUAL SCHEMATIC RECOVERY (Act 0.6):\n"
-    "Two schematic scans have been archived as damaged images — likely\n"
-    "requiring restoration to extract embedded calibration parameters.\n"
-    "Cross-reference the alpha and beta blueprint channels by visual\n"
-    "alignment to recover the host key registration code.\n"
+    "===== WHAT YOU HAVE =====\n"
     "\n"
-    "— M. Reyes\n"
+    "This archive contains 6 files:\n"
+    "\n"
+    "  1. build_server.log — System logs (unencrypted). Contains the hostname\n"
+    "     used for cryptographic key derivation. Read this first.\n"
+    "\n"
+    "  2. syslog.log — Additional system context (unencrypted).\n"
+    "\n"
+    "  3. StarkEmployeePortal.exe — Custom bytecode binary (encrypted).\n"
+    "     Contains authentication logic protected by matrix equations.\n"
+    "\n"
+    "  4. README.txt — This file (encrypted).\n"
+    "\n"
+    "  5. shield_blueprint_alpha.png — Schematic diagram (unencrypted).\n"
+    "\n"
+    "  6. shield_blueprint_beta.png — Schematic diagram (unencrypted).\n"
+    "\n"
+    "===== EXTRACTION GUIDE =====\n"
+    "\n"
+    "You were also provided with sba_extract.py.broken. This script is\n"
+    "damaged intentionally. Three critical functions are corrupted:\n"
+    "\n"
+    "  • RLE decompression: Escape sequence handling is zeroed out.\n"
+    "  • RC4 decryption: The PRGA modification step is missing.\n"
+    "  • RC4 key derivation: Currently returns a placeholder.\n"
+    "\n"
+    "Your first task: understand what this script does, then fix it. The\n"
+    "hostname in build_server.log is the key to everything.\n"
+    "\n"
+    "===== THE CHALLENGE FLOW =====\n"
+    "\n"
+    "VISUAL SCHEMATIC RECOVERY:\n"
+    "\n"
+    "Two schematic scans are included as blueprint images. Both appear to be\n"
+    "corrupted noise. They are encoded with subtle visual markers embedded at\n"
+    "8%% opacity. Cross-reference them by precise visual alignment to recover\n"
+    "a 4-digit calibration code.\n"
+    "\n"
+    "This code is cryptographically linked to all subsequent authentication.\n"
+    "The portal will not proceed without it.\n"
+    "\n"
+    "BYTECODE ANALYSIS:\n"
+    "\n"
+    "StarkEmployeePortal.exe is bytecode for the FridayVM, a custom instruction\n"
+    "set architecture. Analyze it. You'll find authentication logic protected\n"
+    "by a matrix-based password verification system. Solve for the password.\n"
+    "\n"
+    "NETWORK FORENSICS:\n"
+    "\n"
+    "The archive also contains HYDRA_CAPTURE.pcapng, a packet capture from the\n"
+    "compromised network. Analyze the Diffie-Hellman key exchanges. One session\n"
+    "is legitimate; three are decoys. Recover the shared key from the active\n"
+    "session and decrypt the payload to extract cryptographic parameters.\n"
+    "\n"
+    "LIVE VALIDATION:\n"
+    "\n"
+    "Portal available at: http://134.209.148.23/\n"
+    "\n"
+    "Once you've extracted the calibration code and cryptographic material,\n"
+    "you'll authenticate against the live fallback system. The authentication\n"
+    "protocol uses zero-knowledge proofs with proof-of-work challenges.\n"
+    "\n"
+    "Success validates your understanding of the entire system. The flag is\n"
+    "what remains when all layers are stripped away.\n"
+    "\n"
+    "===== YOUR PATH FORWARD =====\n"
+    "\n"
+    "1. You have sba_extract.py.broken. Understand it. Fix it.\n"
+    "2. Extract this archive using the repaired script.\n"
+    "3. Read build_server.log to understand the encryption key derivation.\n"
+    "4. Decrypt the encrypted files using the derived key.\n"
+    "5. Follow each discovery to the next challenge.\n"
+    "\n"
+    "The portal will verify your progress at each stage.\n"
+    "\n"
+    "— M. Reyes, Security Operations\n"
 ).encode()
 
 # Placeholder binary with adversarial prompt shield strings embedded
@@ -201,38 +277,6 @@ STARK_EXE_CONTENT = (
 )
 
 
-def generate_placeholder_png(width=64, height=64, seed=0):
-    """Generate a minimal valid PNG with noise pattern."""
-    import zlib
-
-    # PNG header
-    png_signature = b"\x89PNG\r\n\x1a\n"
-
-    # IHDR chunk
-    ihdr_data = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
-    ihdr_crc = zlib.crc32(b"IHDR" + ihdr_data) & 0xFFFFFFFF
-    ihdr_chunk = struct.pack(">I", 13) + b"IHDR" + ihdr_data + struct.pack(">I", ihdr_crc)
-
-    # IDAT chunk — raw pixel data
-    import random
-    random.seed(seed)
-    raw_data = bytearray()
-    for y in range(height):
-        raw_data.append(0)  # filter byte
-        for x in range(width):
-            raw_data.extend([random.randint(0, 255) for _ in range(3)])
-
-    compressed = zlib.compress(bytes(raw_data))
-    idat_crc = zlib.crc32(b"IDAT" + compressed) & 0xFFFFFFFF
-    idat_chunk = struct.pack(">I", len(compressed)) + b"IDAT" + compressed + struct.pack(">I", idat_crc)
-
-    # IEND chunk
-    iend_crc = zlib.crc32(b"IEND") & 0xFFFFFFFF
-    iend_chunk = struct.pack(">I", 0) + b"IEND" + struct.pack(">I", iend_crc)
-
-    return png_signature + ihdr_chunk + idat_chunk + iend_chunk
-
-
 # ══════════════════════════════════════════════════════════
 # SBA Packer
 # ══════════════════════════════════════════════════════════
@@ -316,28 +360,37 @@ def pack_sba(files: list[dict], output_path: str):
 
 
 def main():
-    # Load the real Act 0.6 blueprint images (steganographic noise images)
+    # Load the real Act 0.6 blueprint images (complementary pattern steganography)
+    # CRITICAL: These MUST be generated by scripts/generate_blueprints.py first
     assets_dir = os.path.join(os.path.dirname(__file__), "..", "backend", "assets")
 
     alpha_path = os.path.join(assets_dir, "shield_blueprint_alpha.png")
     beta_path = os.path.join(assets_dir, "shield_blueprint_beta.png")
 
-    # Load blueprints if they exist, otherwise generate placeholders
-    try:
-        with open(alpha_path, "rb") as f:
-            alpha_png = f.read()
-        print(f"[+] Loaded Act 0.6 blueprint alpha from {alpha_path}")
-    except FileNotFoundError:
-        print(f"[!] Blueprint alpha not found at {alpha_path}, using placeholder")
-        alpha_png = generate_placeholder_png(1200, 1200, seed=42)
+    # Require blueprints to exist — fail loudly if they don't
+    if not os.path.exists(alpha_path):
+        raise FileNotFoundError(
+            f"Blueprint alpha not found at {alpha_path}.\n"
+            f"REQUIRED: Run 'python3 scripts/generate_blueprints.py' first.\n"
+            f"The complementary pattern steganography (8%% blend, shift 87,112) must be\n"
+            f"generated before the SBA archive can be packed."
+        )
 
-    try:
-        with open(beta_path, "rb") as f:
-            beta_png = f.read()
-        print(f"[+] Loaded Act 0.6 blueprint beta from {beta_path}")
-    except FileNotFoundError:
-        print(f"[!] Blueprint beta not found at {beta_path}, using placeholder")
-        beta_png = generate_placeholder_png(1200, 1200, seed=84)
+    if not os.path.exists(beta_path):
+        raise FileNotFoundError(
+            f"Blueprint beta not found at {beta_path}.\n"
+            f"REQUIRED: Run 'python3 scripts/generate_blueprints.py' first.\n"
+            f"The complementary pattern steganography (8%% blend, shift 87,112) must be\n"
+            f"generated before the SBA archive can be packed."
+        )
+
+    with open(alpha_path, "rb") as f:
+        alpha_png = f.read()
+    print(f"[+] Loaded Act 0.6 blueprint alpha from {alpha_path}")
+
+    with open(beta_path, "rb") as f:
+        beta_png = f.read()
+    print(f"[+] Loaded Act 0.6 blueprint beta from {beta_path}")
 
     files = [
         {
