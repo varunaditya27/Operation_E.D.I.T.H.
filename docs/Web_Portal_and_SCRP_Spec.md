@@ -118,6 +118,6 @@ Authentication uses challenge-response endpoints to prevent replaying credential
      {
        "status": "success",
        "session_token": "sess_02931a8bc4ef32da9",
-       "expires_in": 90
+       "expires_in": 1800
      }
      ```
