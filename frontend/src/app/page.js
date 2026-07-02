@@ -277,37 +277,6 @@ export default function Home() {
                   })}
                 </div>
 
-                {/* Blink code translation result */}
-                <div className="bg-gradient-to-r from-cyan-900/30 to-blue-900/30 border border-cyan-500/50 rounded-lg p-4 mb-4">
-                  <div className="text-xs text-cyan-300 font-mono font-bold tracking-widest mb-3">YOUR BLINK CODE</div>
-                  <div className="grid grid-cols-3 gap-3">
-                    {blinkSequence.length >= 2 && (
-                      <div className="bg-black/50 rounded p-2 text-center border border-cyan-500/30">
-                        <div className="text-xs text-gray-400">Pair 1</div>
-                        <div className="text-lg font-bold text-yellow-300 font-mono">
-                          {blinkSequence[0]}{blinkSequence[1]} → {BLINK_GRID[`${blinkSequence[0]}-${blinkSequence[1]}`] || "?"}
-                        </div>
-                      </div>
-                    )}
-                    {blinkSequence.length >= 4 && (
-                      <div className="bg-black/50 rounded p-2 text-center border border-cyan-500/30">
-                        <div className="text-xs text-gray-400">Pair 2</div>
-                        <div className="text-lg font-bold text-yellow-300 font-mono">
-                          {blinkSequence[2]}{blinkSequence[3]} → {BLINK_GRID[`${blinkSequence[2]}-${blinkSequence[3]}`] || "?"}
-                        </div>
-                      </div>
-                    )}
-                    {blinkSequence.length >= 6 && (
-                      <div className="bg-black/50 rounded p-2 text-center border border-cyan-500/30">
-                        <div className="text-xs text-gray-400">Pair 3</div>
-                        <div className="text-lg font-bold text-yellow-300 font-mono">
-                          {blinkSequence[4]}{blinkSequence[5]} → {BLINK_GRID[`${blinkSequence[4]}-${blinkSequence[5]}`] || "?"}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
                 {/* Reference Grid - Professional Matrix Layout */}
                 <div className="bg-black/50 rounded-lg p-4 border border-cyan-500/20 mb-3">
                   <div className="text-xs text-cyan-300 font-mono font-bold tracking-widest mb-3">REFERENCE GRID</div>
