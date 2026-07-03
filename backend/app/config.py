@@ -66,12 +66,18 @@ _dh_client_seed_bytes = hashlib.sha256((NETBIOS_ID + HOST_KEY).encode() + str(BU
 DH_CLIENT_SEED = int.from_bytes(_dh_client_seed_bytes, 'big')
 
 # ──────────────────────────────────────────────
-# Act III: DH Server Private Key (moved to environment for security)
-# Must be set via DH_SERVER_PRIVATE env var at container startup
+# Act III: DH Server Private Key (environment variable required)
+# At container startup, DH_SERVER_PRIVATE must be set via environment.
+# For local development: generate once with secrets.randbits() and cache in .env.local
+# Never use a deterministic fallback for a private key.
 # ──────────────────────────────────────────────
 _dh_server_private_str = os.environ.get("DH_SERVER_PRIVATE", None)
 if not _dh_server_private_str:
-    raise ValueError("DH_SERVER_PRIVATE environment variable must be set")
+    raise ValueError(
+        "DH_SERVER_PRIVATE environment variable must be set. "
+        "For local development, generate a 64-bit random value and set it: "
+        "export DH_SERVER_PRIVATE=$(python3 -c 'import secrets; print(secrets.randbits(32))')"
+    )
 DH_SERVER_PRIVATE = int(_dh_server_private_str)
 DH_SERVER_PUBLIC = pow(DH_GENERATOR, DH_SERVER_PRIVATE, DH_PRIME)
 
