@@ -106,14 +106,15 @@ ZKP_PUBLIC_KEYS = [pow(s, 2, ZKP_N) for s in ZKP_SECRETS]
 # Act IV: Proof-of-Work config
 # ──────────────────────────────────────────────
 POW_PREFIX = "000000"  # 6 zero nibbles = 24 bits of work (~16M iterations)
-POW_TIMEOUT_MS = 30000  # 30 seconds per WS message (relaxed for manual solving)
+POW_TIMEOUT_MS = 120000  # 120 seconds (2 minutes) per WS message for PoW solving
 
 # ──────────────────────────────────────────────
 # Act V: Flag (SPEC-ACT5-OPSDEPLOY §1.1)
 # Flag is loaded from environment at runtime and encrypted with AES-GCM.
 # It is never stored as a plaintext constant in this file.
+# Format: rvcectf{...} — thematic to S.H.I.E.L.D. and cryptographic achievement
 # ──────────────────────────────────────────────
-FLAG = os.environ.get("FLAG", "flag{SHIELD_COGNITIVE_AUTHENTICATION_PASSED_77391}")
+FLAG = os.environ.get("FLAG", "rvcectf{SH13LD_C0GN1T1V3_4UTH}")
 
 # ──────────────────────────────────────────────
 # Act II: Blink Code Grid (SPEC-ACT2-WEBPORTAL §3.1)

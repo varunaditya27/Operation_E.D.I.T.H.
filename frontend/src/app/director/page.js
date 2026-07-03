@@ -155,12 +155,17 @@ export default function DirectorTerminal() {
     switch (command) {
       case "help":
         addLog("Available Commands:");
-        addLog("  init     - Initialize Director session and display flash sequence.");
-        addLog("  connect  - Establishes a live WebSocket handshake with the ZKP gateway.");
+        addLog("  init     - Initialize Director session and display flash sequence (20s).");
+        addLog("  connect  - Establishes WebSocket handshake with ZKP gateway.");
         addLog("  clear    - Clears the terminal screen.");
         addLog("  status   - Displays current authorization state.");
-        addLog("  schema   - Prints the expected WebSocket JSON schemas for client scripts.");
-        addLog("  exit     - Disconnects and exits terminal session.");
+        addLog("  schema   - Prints the WebSocket JSON schemas for client scripts.");
+        addLog("  back     - Return to dashboard (exits current session).");
+        addLog("  exit     - Same as 'back' (disconnect and exit).");
+        addLog("");
+        addLog("Timeouts:");
+        addLog("  • ZKP commitment/response: 45 seconds per round");
+        addLog("  • Proof-of-work solving: 120 seconds");
         break;
       case "init":
         initializeSession();
@@ -171,13 +176,20 @@ export default function DirectorTerminal() {
         setZkpParams(null);
         break;
       case "status":
-        addLog(`Clearance Mode: FIAT-SHAMIR ZKP`);
+        addLog(`Clearance Mode: FIAT-SHAMIR ZKP (2-round)`);
         addLog(`Connection State: ${connected ? "CONNECTED" : "DISCONNECTED"}`);
-        addLog(`User Reflex Latency Constraint: < 1000ms per step`);
+        addLog(`Session Initialized: ${sessionInitialized ? "YES" : "NO"}`);
+        addLog(`CAPTCHA Requirement: Round 1 only (not Round 2)`);
+        addLog(`Computational Constraints:`);
+        addLog(`  - ZKP commitment/response: 45s per message`);
+        addLog(`  - Proof-of-work solving: 120s (generous for Python)`);
+        addLog(`  - Flash code cycle: 20s (visual, non-automatable)`);
         break;
       case "exit":
+      case "back":
         if (wsInstance) wsInstance.close();
-        router.push("/dashboard");
+        addLog("[*] Returning to dashboard...");
+        setTimeout(() => router.push("/dashboard"), 500);
         break;
       case "schema":
         addLog("============================================================");
@@ -318,11 +330,56 @@ export default function DirectorTerminal() {
       ws.onclose = (event) => {
         setConnected(false);
         setWsInstance(null);
-        addLog(`[-] Connection closed. Code: ${event.code}. Reason: ${event.reason || "None"}`);
+
         if (event.code === 4008) {
-          addLog("[!] EXPLANATION: Human cognitive/reflex latency exceeded the 1.0 second firewall gate.");
-          addLog("[!] RECOMMENDATION: Write an automated Python client utilizing the 'websockets' library.");
+          addLog("");
+          addLog("⏳⏳⏳⏳⏳⏳⏳⏳⏳⏳⏳⏳⏳⏳⏳⏳⏳⏳⏳⏳⏳⏳⏳⏳⏳⏳⏳⏳");
+          addLog(`"The ring tolerates no delays. You have tested its mercy."`);
+          addLog("");
+          addLog(event.reason || "CLEARANCE TIMEOUT EXCEEDED");
+          addLog("");
+
+          if (event.reason && event.reason.includes("POW_SOLVER")) {
+            addLog("═════════════════════════════════════════════════════════");
+            addLog("THE GAUNTLET'S PATIENCE IS FINITE.");
+            addLog("");
+            addLog("You sought the Stone through brute force and found yourself");
+            addLog("with insufficient computational sacrifice. The price was too");
+            addLog("high; your currency of cycles ran dry in the forge.");
+            addLog("");
+            addLog("Two paths forward:");
+            addLog("  1. Forge faster iron (Rust whispers louder than Python)");
+            addLog("  2. Multiply your search across the void (threads, cores, parallelism)");
+            addLog("");
+            addLog("Some say the C extensions hold secrets Python withholds.");
+            addLog("═════════════════════════════════════════════════════════");
+          } else if (event.reason && event.reason.includes("ZKP")) {
+            addLog("═════════════════════════════════════════════════════════");
+            addLog("THE COURT'S PATIENCE IS EXHAUSTED.");
+            addLog("");
+            addLog("Your proof was calculated too slowly. The modular ring");
+            addLog("demands swift answers. Either the mathematics was slow,");
+            addLog("or the pathway between you and the gate grew long.");
+            addLog("");
+            addLog("Refine: pre-compute what can be known. Accelerate: measure");
+            addLog("the latency between you and the server's hearing.");
+            addLog("═════════════════════════════════════════════════════════");
+          }
+
+          addLog("");
+          addLog("TO RETURN TO THE GATE:");
+          addLog("  • The chamber remembers nothing. You must begin again.");
+          addLog("  • Descend from the Director's throne to the Dashboard.");
+          addLog("  • Ascend once more. Request a new nonce ('init').");
+          addLog("  • Watch the stones cycle anew. Transcribe their sequence.");
+          addLog("  • Reconnect with fresh eyes ('connect').");
+          addLog("");
+          addLog("Each failure teaches the worthy. Thanos endured many defeats.");
+          addLog("⏳⏳⏳⏳⏳⏳⏳⏳⏳⏳⏳⏳⏳⏳⏳⏳⏳⏳⏳⏳⏳⏳⏳⏳⏳⏳⏳⏳");
+        } else {
+          addLog(`[-] Connection closed. Code: ${event.code}. Reason: ${event.reason || "None"}`);
         }
+
         if (soundEnabled) playTone(150, 0.4, "sawtooth", 0.08);
       };
 

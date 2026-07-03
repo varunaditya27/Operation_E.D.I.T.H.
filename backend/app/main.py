@@ -522,7 +522,8 @@ async def admin_auth_ws(websocket: WebSocket):
             try:
                 raw = await asyncio.wait_for(websocket.receive_text(), timeout=timeout * 1.5)
             except asyncio.TimeoutError:
-                await websocket.close(code=4008, reason="Clearance Timeout Exceeded")
+                error_msg = f"ZKP_COMMIT_TIMEOUT: Round {round_num + 1} commitment exceeded {timeout * 1.5:.0f}s limit. Reconnect and restart."
+                await websocket.close(code=4008, reason=error_msg)
                 return
 
             commit_data = json.loads(raw)
@@ -557,7 +558,8 @@ async def admin_auth_ws(websocket: WebSocket):
             try:
                 raw = await asyncio.wait_for(websocket.receive_text(), timeout=timeout * 1.5)
             except asyncio.TimeoutError:
-                await websocket.close(code=4008, reason="Clearance Timeout Exceeded")
+                error_msg = f"ZKP_RESPONSE_TIMEOUT: Round {round_num + 1} response exceeded {timeout * 1.5:.0f}s limit. Reconnect and restart."
+                await websocket.close(code=4008, reason=error_msg)
                 return
 
             respond_data = json.loads(raw)
@@ -585,11 +587,17 @@ async def admin_auth_ws(websocket: WebSocket):
             "prefix": config.POW_PREFIX,
         })
 
-        # ─── Step 6: Client PoW Solution [1s timeout] ───
+        # ─── Step 6: Client PoW Solution ───
         try:
             raw = await asyncio.wait_for(websocket.receive_text(), timeout=timeout)
         except asyncio.TimeoutError:
-            await websocket.close(code=4008, reason="Clearance Timeout Exceeded")
+            error_msg = (
+                f"POW_SOLVER_TIMEOUT: Proof-of-Work solving exceeded {timeout:.0f}s limit. "
+                f"Your solver took too long to find the nonce. "
+                f"Optimize: use C extensions, multithread, or minimize string conversions. "
+                f"To restart: disconnect, go back to /dashboard, return to /director, run 'init', transcribe flash code, and 'connect' again."
+            )
+            await websocket.close(code=4008, reason=error_msg)
             return
 
         pow_data = json.loads(raw)

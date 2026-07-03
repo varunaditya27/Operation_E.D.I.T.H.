@@ -13,7 +13,7 @@ The flag is not stored in plaintext on the server or in the client binary. It is
 
 ### 1.1 Encryption Parameters
 * **Algorithm:** AES-GCM (256-bit key size).
-* **Plaintext Flag:** `flag{SHIELD_COGNITIVE_AUTHENTICATION_PASSED_77391}`
+* **Plaintext Flag:** `rvcectf{SH13LD_C0GN1T1V3_4UTH}`
 * **Associated Data (AAD):** The unique ZKP session nonce generated in the WebSocket init message (`secrets.token_hex(8)`).
 
 ### 1.2 Key Derivation Function (KDF)
@@ -51,7 +51,7 @@ services:
       - STATE_KEY=stark_audit_v5
       - DB_PATH=/app/data/edith.db
       - DH_SERVER_PRIVATE=57382103
-      - FLAG=flag{SHIELD_COGNITIVE_AUTHENTICATION_PASSED_77391}
+      - FLAG=rvcectf{SH13LD_C0GN1T1V3_4UTH}
     volumes:
       - backend-data:/app/data
     restart: always
