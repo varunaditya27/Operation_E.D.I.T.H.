@@ -49,29 +49,24 @@ def verify_act0():
 # ACT I: FRIDAYVM OPCODE SHUFFLE & MATRIX
 # ==========================================
 
-def get_lcg_sequence(seed, count):
-    """Generates a sequence of integers using FridayVM's LCG."""
-    state = seed
-    out = []
-    for _ in range(count):
-        state = (1103515245 * state + 12345) % (2**31)
-        out.append(state)
-    return out, state
+def lcg_next(state: int) -> int:
+    """Fisher-Yates 64-bit PCG64 LCG step."""
+    return (6364136223846793005 * state + 1442695040888963407) % (2**64)
 
 def shuffle_opcodes(seed):
-    """Executes FridayVM's opcode table shuffle."""
+    """Executes FridayVM's 64-bit LCG opcode table shuffle."""
     base_ops = list(range(32))
     state = seed
     for i in range(len(base_ops) - 1, 0, -1):
-        state = (1103515245 * state + 12345) % (2**31)
+        state = lcg_next(state)
         j = state % (i + 1)
         base_ops[i], base_ops[j] = base_ops[j], base_ops[i]
     return base_ops
 
 def solve_matrix_password():
-    """Solves the modular matrix equation: M * V = Target (mod 256)."""
+    """Solves the decoy modular matrix equation: M * V = Target (mod 256)."""
     # M = [[3, 5, 2], [1, 7, 4], [6, 2, 8]]
-    # Target = [184, 222, 190]
+    # Target = [31, 163, 162]
     # We brute-force the 3-character space for simplicity in verifying the math
     target = [31, 163, 162]
     for r0 in range(32, 127):
@@ -89,8 +84,8 @@ def verify_act1():
     machine_guid = "7948eaa2-7dfd-417d-8fb4-f8b9e2a930e3"
     build_epoch = 1781259200
     
-    guid_crc = binascii.crc32(machine_guid.encode())
-    seed = guid_crc ^ build_epoch
+    guid_bytes = hashlib.sha256(machine_guid.encode() + str(build_epoch).encode()).digest()[:8]
+    seed = int.from_bytes(guid_bytes, 'big')
     
     shuffled_table = shuffle_opcodes(seed)
     print(f"  [+] Opcode Seed: {hex(seed)}")
@@ -111,16 +106,21 @@ def verify_act3():
     host_key = "STARK-FALLBACK-KEY-2026"
     build_epoch = 1781259200
     
-    seed = binascii.crc32((netbios_id + host_key).encode()) ^ (build_epoch + 142)
+    seed_bytes = hashlib.sha256((netbios_id + host_key).encode() + str(build_epoch).encode()).digest()[:8]
+    seed = int.from_bytes(seed_bytes, 'big')
     
-    # Generate private exponent 'b'
-    lcg_outs, _ = get_lcg_sequence(seed, 2)
+    # Generate private exponent 'b' (96-bit)
+    state = seed
+    lcg_outs = []
+    for _ in range(2):
+        state = lcg_next(state)
+        lcg_outs.append(state)
     b = (lcg_outs[0] << 32) | lcg_outs[1]
     
     # Diffie-Hellman parameters
     p = int(
-        "9B15E3F0A1823B4E6C2D8A9F123C4B5A6E7D8F901BC2A3D4E5F6A7B8C9D0E1F2A3B4C5D6E"
-        "7F8A9B0C1D2E3F4A5B6C7D8E9F0A1B2C3D4E5F6A7B8C9D0E1F2A3B4", 16
+        "9B15E3F0A1823B4E6C2D8A9F123C4B5A6E7D8F901BC2A3D4E5F6A7B8C9D0E1F2"
+        "A3B4C5D6E7F8A9B0C1D2E3F4A5B6C7D8E9F0A1B2C3D4E5F6A7B8C9D0E1F2A3B4", 16
     )
     g = 2
     
@@ -142,13 +142,27 @@ def verify_act3():
 
 def verify_act4():
     print("[Act IV] Verifying Fiat-Shamir ZKP Equations...")
-    # N = P * Q (using small primes for verification speed)
-    P = 982451653
-    Q = 982451629
-    N = P * Q
     
-    # Secrets s_1, s_2, s_3, s_4
-    s = [4728912, 8832012, 1928301, 7732910]
+    # Derivation matching config.py
+    machine_guid = "7948eaa2-7dfd-417d-8fb4-f8b9e2a930e3"
+    build_epoch = 1781259200
+    shift_offset = 427
+    
+    _guid_bytes = machine_guid.encode()
+    _epoch_bytes = str(build_epoch).encode()
+    _shift_bytes = str(shift_offset).encode()
+    employee_secret = hashlib.sha256(_guid_bytes + _epoch_bytes + _shift_bytes).digest()[:16]
+
+    ZKP_P = 0xFEEDBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEF3
+    ZKP_Q = 0xDEADBEEFCAFEBABECAFEBABECAFEBABECAFEBABECAFEBABECAFEBABECAFEBAB7
+    N = ZKP_P * ZKP_Q
+    ZKP_K = 4
+    
+    # Secrets s_j derived from employee_secret
+    s = [
+        int.from_bytes(hashlib.sha256(employee_secret + i.to_bytes(1, 'big')).digest()[:8], 'big') % N
+        for i in range(ZKP_K)
+    ]
     # Public keys v_j = s_j^2 mod N
     v = [pow(sj, 2, N) for sj in s]
     
@@ -175,7 +189,8 @@ def verify_act4():
             
     assert y_squared == check_val, "ZKP verification congruence check failed!"
     print("  [+] ZKP congruence verified successfully:")
-    print(f"      y^2 mod N == x * prod(v_j^e_j) mod N ({y_squared} == {check_val})")
+    print(f"      y^2 mod N == x * prod(v_j^e_j) mod N")
+    print(f"      ({hex(y_squared)[:30]}... == {hex(check_val)[:30]}...)")
 
 # ==========================================
 # MAIN EXECUTION

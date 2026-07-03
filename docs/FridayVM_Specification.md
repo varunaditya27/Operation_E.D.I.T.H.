@@ -32,27 +32,29 @@ The dynamic shuffle seed is computed from two environmental parameters:
 1. **`MachineGuid`**: Recovered via registry call to `HKLM\SOFTWARE\Microsoft\Cryptography\MachineGuid`.
 2. **`build_epoch`**: Hardcoded into the binary header (`1781259200`).
 
-$$\text{Seed} = \text{CRC32}(\text{MachineGuid}) \oplus \text{build\_epoch}$$
+$$\text{Seed} = \text{SHA256}(\text{MachineGuid} + \text{build\_epoch})[:8] \text{ as a big-endian 64-bit integer}$$
 
 * **Example Target Value:**
   * MachineGuid: `7948eaa2-7dfd-417d-8fb4-f8b9e2a930e3`
-  * CRC32: `0xE39A8F12`
-  * build_epoch: `1781259200` (`0x6A2C29C0`)
-  * Seed: `0xE39A8F12` $\oplus$ `0x6A2C29C0` = `0x89B6A6D2`
+  * build_epoch: `1781259200`
+  * Seed: `0xf7877efa9af0ce56`
 
 ### 2.2 Shuffle Implementation
-The interpreter shuffles a list of indices from `0` to `31` using a standard Linear Congruential Generator (LCG) initialized with the seed:
+The interpreter shuffles a list of indices from `0` to `31` using a 64-bit Linear Congruential Generator (LCG) initialized with the seed:
 * **LCG Parameters:**
-  * $X_{n+1} = (1103515245 \cdot X_n + 12345) \pmod{2^{31}}$
+  * Multiplier ($A$): `6364136223846793005`
+  * Increment ($C$): `1442695040888963407`
+  * Modulus ($M$): $2^{64}$
+  * $X_{n+1} = (A \cdot X_n + C) \pmod M$
 * **Mapping Array Construction:**
   ```python
   def generate_opcode_map(seed):
       base_ops = list(range(32))
       state = seed
       
-      # Fisher-Yates shuffle utilizing LCG
+      # Fisher-Yates shuffle utilizing 64-bit LCG
       for i in range(len(base_ops) - 1, 0, -1):
-          state = (1103515245 * state + 12345) % (2**31)
+          state = (6364136223846793005 * state + 1442695040888963407) % (2**64)
           j = state % (i + 1)
           base_ops[i], base_ops[j] = base_ops[j], base_ops[i]
       
@@ -90,8 +92,8 @@ FridayVM defines 16 operational instructions mapped into the 32-value namespace 
 ## 4. Self-Modifying Code Engine
 
 To enforce dynamic runtime tracing rather than offline disassembly, the execution segment uses a rotating XOR page system:
-* **Segment Size:** Bytecode is split into 16-byte execution lines.
-* **Permutation Step:** As the Program Counter (`PC`) crosses a 16-byte boundary, the previous block of 16 bytes is encrypted in-place by XORing with the value of register `R0`. The next block of 16 bytes is decrypted in-place by XORing with the value of register `R1`.
+* **Segment Size:** Bytecode is split into 16-byte execution pages (lines).
+* **Permutation Step:** As the Program Counter (`PC`) crosses a 16-byte boundary, the previous block of 16 bytes is encrypted in-place by XORing each byte with the low byte of register `R0` (`R0 & 0xFF`). The next block of 16 bytes is decrypted in-place by XORing each byte with the low byte of register `R1` (`R1 & 0xFF`).
 * **Implication:** The code changes based on calculations performed by the user's inputs. If the input values are incorrect, the next block of bytecode decrypts into garbage instructions, causing the interpreter to hit an invalid opcode and crash.
 
 ---
@@ -117,13 +119,13 @@ const char* DECOY_ERROR_SHIELD =
 
 ---
 
-## 6. Password Checking Bytecode Spec
+## 6. Password Checking & Page Decryption Spec
 
-The embedded bytecode program checks the input password using a series of transformations:
-1. Reads 6 characters from stdin (e.g. `STARK8`).
-2. Converts characters to registers `R0` through `R5`.
-3. Performs a matrix multiplication with a static 3x3 array stored in VM memory:
-   $$\begin{pmatrix} R_0 \\ R_1 \\ R_2 \end{pmatrix} \cdot \begin{pmatrix} 3 & 5 & 2 \\ 1 & 7 & 4 \\ 6 & 2 & 8 \end{pmatrix} \pmod{256}$$
-4. Checks the resulting vector against the target values: `[184, 222, 190]`.
-5. If valid, the program writes the `employee_secret` hash to memory and prints success.
-6. The player must reverse this matrix operation using modular inverse arithmetic to retrieve the correct character combination.
+The FridayVM bytecode checks the user credentials by using the input characters to decrypt consecutive pages of execution:
+1. The program executes Page 0 (which is unencrypted). It performs register loads and computations, loading `R1` with the decryption key for Page 1 (`0x54` = `'T'`).
+2. When the Program Counter crosses the 16-byte boundary from Page 0 to Page 1, Page 1 is decrypted in-place using the value of `R1`.
+3. Page 1 executes, loading `R1` with the decryption key for Page 2 (`0x41` = `'A'`).
+4. Page 2 is decrypted in-place using `'A'`, and executes, loading `R1` with the decryption key for Page 3 (`0x33` = `'3'`).
+5. Page 3 is decrypted in-place using `'3'`, executes final checks, and halts.
+6. The player must provide the correct inputs (`T`, `A`, `3`) to ensure all pages decrypt successfully.
+7. Note: A $4 \times 4$ matrix modular multiplication equation is packaged within the dummy/decoy sections of the portal PE file to act as a reverse engineering rabbit-hole, but is not executed during the core authentication page traversal.

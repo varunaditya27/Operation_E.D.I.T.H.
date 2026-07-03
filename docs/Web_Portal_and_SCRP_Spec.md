@@ -23,33 +23,27 @@ The web interface is a Next.js single-page application hosted on Vercel. It cons
 To access the portal, the client must tune a dynamic calibration wave ($W_{cal}$) to match a static reference wave ($W_{ref}$).
 
 ### 2.1 Wave Equations
-The waves are calculated as a function of horizontal pixel coordinate $x \in [0, 600]$:
+The waves are calculated as a function of time-step coordinate $x \in [0, 2\pi]$:
 
-$$\text{Ref Wave: } Y_{ref}(x) = Y_{mid} + A_{ref} \cdot \sin\left(\frac{2\pi \cdot f_{ref} \cdot x}{L} + \phi_{ref}\right) + k_{ref} \cdot x$$
+$$\text{Ref Wave: } Y_{ref}(x) = A_{ref} \cdot \sin(f_{ref} \cdot x + \phi_{ref}) + k_{ref}$$
 
-$$\text{Cal Wave: } Y_{cal}(x) = Y_{mid} + (A_{ref} \cdot A_{user}) \cdot \sin\left(\frac{2\pi \cdot (f_{ref} \cdot f_{user}) \cdot x}{L} + \phi_{user}\right) + k_{user} \cdot x$$
+$$\text{Cal Wave: } Y_{cal}(x) = A_{user} \cdot \sin(f_{user} \cdot x + \phi_{user}) + k_{user}$$
 
-* **Constants:**
-  * Canvas Width: `600` px
-  * Center Y ($Y_{mid}$): `150` px
-  * Reference Amplitude ($A_{ref}$): `50` px
-  * Reference Frequency ($f_{ref}$): `0.05` (spatial scale)
-  * Modulus Length ($L$): `600`
-* **Target Slider States:**
-  * $f_{user}$ = `1.00`
-  * $\phi_{user}$ = `0.00`
-  * $A_{user}$ = `1.00`
-  * $k_{user}$ = `0.00`
+* **Target Reference Constants (Server-Side):**
+  * Target Frequency ($f_{ref}$): `0.82`
+  * Target Phase ($\phi_{ref}$): `2.14`
+  * Target Amplitude ($A_{ref}$): `0.91`
+  * Target Skew ($k_{ref}$): `0.07`
 
-### 2.2 WebAssembly Resonance Engine (`wrc_verifier.wasm`)
-The verification calculations are executed in a compiled WebAssembly module to prevent solvers from editing local Javascript values using the browser console.
-* **Wasm Exports:**
-  * `void set_user_inputs(float f, float p, float a, float k)`
-  * `float calculate_resonance_diff()`
+### 2.2 Calibration Gate Verification
+The calibration coefficients are verified directly by the backend endpoint `POST /api/v1/calibrate/submit`.
 * **Resonance Condition:**
-  * The difference is calculated as the mean squared error (MSE) of $Y_{cal}(x) - Y_{ref}(x)$ sampled at 60 points along the x-axis:
-    $$\text{MSE} = \frac{1}{60} \sum_{i=1}^{60} \left(Y_{cal}(10 \cdot i) - Y_{ref}(10 \cdot i)\right)^2$$
-  * Resonance is achieved when $\text{MSE} < 0.05$.
+  * To successfully align the gate, the submitted parameters must fall within the following tolerances of the reference constants:
+    * Frequency: $|f_{user} - 0.82| \le 0.03$
+    * Phase: $|\phi_{user} - 2.14| \le 0.05$
+    * Amplitude: $|A_{user} - 0.91| \le 0.03$
+    * Skew: $|k_{user} - 0.07| \le 0.02$
+  * Rate Limit: Max 6 calibration attempts per minute per session. On success, the backend updates the database to mark the session as calibrated, enabling access to the subsequent PCAP release and WebSocket endpoints.
 
 ---
 
@@ -77,7 +71,7 @@ Once resonance is achieved ($\text{MSE} < 0.05$), the verifier signals the canva
     * Pair 2: `Green-Blue` -> `T`
     * Pair 3: `Yellow-Red` -> `Z`
     * Result Code: `STZ`
-* The generated code changes every 10 seconds. The server validates that the submitted code was active during that exact timestamp window.
+* The generated code changes every 30 minutes (1800 seconds). The server validates that the submitted code was active during that exact timestamp window.
 
 ---
 
@@ -91,9 +85,11 @@ Authentication uses challenge-response endpoints to prevent replaying credential
 * **Response (JSON):**
   ```json
   {
+    "challenge_id": "02a9b3d18c4e2a10",
     "challenge": "e82a39f01bc482390a421b92049e29a3",
     "salt": "stark_audit_v5",
-    "timestamp": 1781259230
+    "timestamp": 1781259230,
+    "blink_sequence": ["R", "R", "G", "B", "Y", "R"]
   }
   ```
 
@@ -105,13 +101,15 @@ Authentication uses challenge-response endpoints to prevent replaying credential
     "username": "mreyes",
     "response": "92f0bc8aef43029da12f98bc43d1aef4023da9f123ba6e7021da3b9cde183f98",
     "blink_code": "STZ",
+    "challenge_id": "02a9b3d18c4e2a10",
     "timestamp": 1781259230
   }
   ```
 * **Validation Logic:**
-  1. The server checks that the submission timestamp is within $\pm 10$ seconds of the current time.
+  1. The server checks that the submission timestamp is within $\pm 30$ minutes ($\pm 1800$ seconds) of the current server time.
   2. The server re-evaluates the challenge:
      $$\text{Expected\_Response} = \text{HMAC-SHA256}(\text{key}=\text{employee\_secret}, \text{msg}=\text{challenge} + \text{salt})$$
+     where `salt` is the `STATE_KEY` (`stark_audit_v5`).
   3. The server checks that `blink_code` matches the color sequence generated for that timestamp.
   4. If correct, the server issues a session token:
      ```json

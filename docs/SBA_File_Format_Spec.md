@@ -78,10 +78,10 @@ If `EncryptFlag = 0x01`, the payload data block is encrypted using a modified RC
 
 ### 4.1 Key Derivation
 The encryption key is derived by hashing the build server host name (disclosed in cleartext within the `build_server.log` file, which is packaged with `EncryptFlag = 0x00` inside the same archive).
-$$\text{Key} = \text{MD5}(\text{Hostname})[0:16]$$
+$$\text{Key} = \text{MD5}(\text{Hostname})$$
 * **Hostname Value:** `edith-build-04.stark.internal`
-* **Raw MD5 Hash:** `e0a3e87834a34b22c26ea612dbcb182b`
-* **Derived RC4 Key:** `e0a3e87834a34b22c26ea612dbcb182b` (first 16 hex characters converted to bytes: `b"\xe0\xa3\xe8\x78\x34\xa3\x4b\x22\xc2\x6e\xa6\x12\xdb\xcb\x18\x2b"`)
+* **Raw MD5 Hash:** `23404e154fdd5faaabc69af6aec72789`
+* **Derived RC4 Key:** `23404e154fdd5faaabc69af6aec72789` (hex string converted to 16 bytes: `b"\x23\x40\x4e\x15\x4f\xdd\x5f\xaa\xab\xc6\x9a\xf6\xae\xc7\x27\x89"`)
 
 ### 4.2 Stream Cipher Core (Stark-RC4)
 The cipher uses the standard Key Scheduling Algorithm (KSA) and Pseudo-Random Generation Algorithm (PRGA), with a modified state permutation:
@@ -123,25 +123,27 @@ The generator script must package the following files into `auth_backup.sba`:
      STARK INDUSTRIES BUILD SERVER: edith-build-04.stark.internal
      BUILD_EPOCH: 1781259200
      TARGET_PE: StarkEmployeePortal.exe
-     STATUS: Fallback deployment activated successfully.
+     ...
      ```
-2. **`StarkEmployeePortal.exe`** (`EncryptFlag = 0x01`, `CompAlgo = 0x01`):
+2. **`syslog.log`** (`EncryptFlag = 0x00`, `CompAlgo = 0x01`):
+   * System syslog context containing host network configuration and DHCP details.
+3. **`StarkEmployeePortal.exe`** (`EncryptFlag = 0x01`, `CompAlgo = 0x01`):
    * The binary running the FridayVM code.
-3. **`README.txt`** (`EncryptFlag = 0x01`, `CompAlgo = 0x01`):
+4. **`README.txt`** (`EncryptFlag = 0x01`, `CompAlgo = 0x01`):
    * The warning explaining the fallback authentication mode and the hint regarding visual overlays.
-4. **`shield_blueprint_alpha.png`** (`EncryptFlag = 0x00`, `CompAlgo = 0x00`):
+5. **`shield_blueprint_alpha.png`** (`EncryptFlag = 0x00`, `CompAlgo = 0x00`):
    * Noise channel image.
-5. **`shield_blueprint_beta.png`** (`EncryptFlag = 0x00`, `CompAlgo = 0x00`):
+6. **`shield_blueprint_beta.png`** (`EncryptFlag = 0x00`, `CompAlgo = 0x00`):
    * Decoupled noise channel image.
 
 ---
 
 ## 6. Playtest Verification & Test Vectors
 
-* **Header Input:** `53 42 41 00 04 00 05 00 A0 04 00 00 00 00 00 00`
+* **Header Input:** `53 42 41 00 04 00 06 00 A0 04 00 00 00 00 00 00`
   * Decoded Magic: `SBA\x00`
   * Version: `4`
-  * File Count: `5`
+  * File Count: `6`
   * TOC Offset: `1184` bytes
 * **RLE Validation:**
   * Input: `\xBC\x04\x41\x42\xBC\x00`
