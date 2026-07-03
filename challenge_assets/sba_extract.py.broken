@@ -82,30 +82,40 @@ def rle_decompress(data: bytes) -> bytes:
     """Custom RLE decompression.
 
     Protocol:
-      - Escape marker: 0xBC
-      - 0xBC 0x00 → literal 0xBC byte
-      - 0xBC [len] [byte] → repeat [byte] [len] times
+      - Escape marker: 0xBC (the gateway)
+      - The escape speaks in two voices—listen to what follows
 
-    [DAMAGED] — The decompression logic below is incomplete.
-    The escape sequence handling has been zeroed out.
-    You must reconstruct the correct logic.
+    [DAMAGED] — The logic has been stripped away. Only the framework remains.
+
+    To repair: Understand that escape sequences are the system's way of
+    speaking in dual tongues. When the escape marker appears, it carries
+    a message about what comes next. One path leads to singularity (the
+    marker itself becomes substance). Another path multiplies—take what
+    follows and echo it across the void.
+
+    The boundary between singularity and repetition is the silence after
+    the escape—what comes next determines everything.
+
+    The increment that follows must account for the words spoken by the
+    escape sequence itself.
     """
     out = bytearray()
     i = 0
     while i < len(data):
         if data[i] == 0xBC:
-            # ╔══════════════════════════════════════════╗
-            # ║  [DAMAGED SECTION — RECONSTRUCTION       ║
-            # ║   REQUIRED]                              ║
-            # ║                                          ║
-            # ║  Handle escape sequences here:           ║
-            # ║  - If next byte is 0x00: emit literal    ║
-            # ║    0xBC                                  ║
-            # ║  - Otherwise: next byte = repeat count,  ║
-            # ║    byte after = value to repeat          ║
-            # ╚══════════════════════════════════════════╝
+            # ╔════════════════════════════════════════════════════╗
+            # ║  [DAMAGED] When the gateway opens, listen to what  ║
+            # ║  follows. The escape sequence speaks in a specific ║
+            # ║  dialect. You must learn its two languages:        ║
+            # ║                                                    ║
+            # ║  * The silence speaks: singularity                 ║
+            # ║  * The word speaks: echo and multiply              ║
+            # ║                                                    ║
+            # ║  How many bytes does the gateway consume when it   ║
+            # ║  speaks?                                           ║
+            # ╚════════════════════════════════════════════════════╝
             pass  # TODO: Repair this section
-            i += 1  # This increment is wrong — fix it
+            i += 1  # This increment is wrong — reconsider the gateway's voice
         else:
             out.append(data[i])
             i += 1
@@ -115,12 +125,19 @@ def rle_decompress(data: bytes) -> bytes:
 def stark_rc4_decrypt(data: bytes, key: bytes) -> bytes:
     """Modified RC4 decryption (Stark variant).
 
-    [DAMAGED] — The PRGA modification step has been removed.
-    Standard RC4 won't work. The modification involves an XOR
-    on the j index during the PRGA phase.
+    [DAMAGED] — The PRGA generation phase has been corrupted.
 
-    Hint: The key is derived from MD5 of a hostname found in
-    one of the unencrypted files in the archive.
+    Standard RC4 produces a keystream through permutation. But Stark's
+    engineers believed in symmetry. They added a whisper—a modification
+    that feeds the keystream back into itself, creating a feedback loop.
+
+    The keystream is generated. Then something happens. The index that
+    guides selection of the next byte—it is touched by what was just
+    generated. This is the Stark modification. Find where the keystream
+    whispers to the index, and you restore the cipher.
+
+    Hint: The master key comes from a name. A system's true identity.
+    Find "BUILD SERVER:" in the unencrypted logs. What follows is power.
     """
     # KSA (intact)
     S = list(range(256))
@@ -129,22 +146,25 @@ def stark_rc4_decrypt(data: bytes, key: bytes) -> bytes:
         j = (j + S[i] + key[i % len(key)]) % 256
         S[i], S[j] = S[j], S[i]
 
-    # PRGA [DAMAGED]
+    # PRGA [DAMAGED — Stark modification missing]
     i = 0
     j = 0
     out = bytearray()
     for idx in range(len(data)):
         i = (i + 1) % 256
         j = (j + S[i]) % 256
-        # ╔══════════════════════════════════════════╗
-        # ║  [DAMAGED SECTION — RECONSTRUCTION       ║
-        # ║   REQUIRED]                              ║
-        # ║                                          ║
-        # ║  The standard RC4 PRGA has been modified ║
-        # ║  with an additional XOR operation on the ║
-        # ║  j index using the key stream.           ║
-        # ║  Reconstruct the modification here.      ║
-        # ╚══════════════════════════════════════════╝
+        # ╔═══════════════════════════════════════════════╗
+        # ║  [DAMAGED] After the permutation speaks,      ║
+        # ║  something whispers back. The keystream       ║
+        # ║  becomes a voice that modifies the very       ║
+        # ║  index that summoned it.                      ║
+        # ║                                               ║
+        # ║  Standard: take keystream, XOR with data      ║
+        # ║  Stark: before that, let keystream touch j    ║
+        # ║                                               ║
+        # ║  Where does the modification belong?          ║
+        # ║  After swap? Before output? Find it.          ║
+        # ╚═══════════════════════════════════════════════╝
         S[i], S[j] = S[j], S[i]
         t = (S[i] + S[j]) % 256
         out.append(data[idx] ^ S[t])
@@ -154,18 +174,34 @@ def stark_rc4_decrypt(data: bytes, key: bytes) -> bytes:
 def derive_rc4_key(hostname: str) -> bytes:
     """Derive the RC4 encryption key from the build server hostname.
 
-    [DAMAGED] — The key derivation method has been corrupted.
-    It uses a standard hash function on the hostname.
-    The result is truncated to produce the final key bytes.
+    [DAMAGED] — The key derivation has been gutted. A placeholder sleeps here.
+
+    Every system has a true name. A machine identifier. The engineers who
+    designed this archive understood that names carry weight. They forged
+    the cipher key from the name itself—passing it through a mathematical
+    crucible that transforms identity into secrets.
+
+    One flame exists that converts names to raw power: a one-way function
+    used across cryptography. The result is too long to be useful directly—
+    so you take only what you need. Half of what emerges. No more.
+
+    The hostname is already known (extracted from logs). Transform it. Take
+    what you need. Return the essence.
     """
-    # ╔══════════════════════════════════════════╗
-    # ║  [DAMAGED SECTION — RECONSTRUCTION       ║
-    # ║   REQUIRED]                              ║
-    # ║                                          ║
-    # ║  Derive the key from the hostname using  ║
-    # ║  a hash function. Return raw bytes.      ║
-    # ╚══════════════════════════════════════════╝
-    return b"\x00" * 16  # Placeholder — this is wrong
+    # ╔═══════════════════════════════════════════════╗
+    # ║  [DAMAGED] A name becomes a secret when       ║
+    # ║  passed through the crucible. The flame       ║
+    # ║  transforms but also produces excess.         ║
+    # ║                                               ║
+    # ║  What you need:                               ║
+    # ║  - A one-way function (hash)                  ║
+    # ║  - The hostname                               ║
+    # ║  - The essential part (not all of it)         ║
+    # ║                                               ║
+    # ║  Return raw bytes. Return only what flows     ║
+    # ║  through before the flame burns away.         ║
+    # ╚═══════════════════════════════════════════════╝
+    return b"\x00" * 16  # Placeholder — this burns with false power
 
 
 def extract(sba_path: str, output_dir: str = "extracted"):

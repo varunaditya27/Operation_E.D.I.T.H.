@@ -42,6 +42,7 @@ ISA = {
     13: ("ROL",     [1, 1]),       # reg(1), val(1)
     14: ("SWAP",    [1, 1]),       # r1(1), r2(1)
     15: ("MOD",     [1, 1]),       # r_dest(1), r_src(1)
+    16: ("NOP",     []),           # No operation (padding)
 }
 
 # Reverse: mnemonic -> instruction_id
@@ -297,6 +298,9 @@ class FridayVMEmulator:
             if self.registers[rs] != 0:
                 self.registers[rd] = self.registers[rd] % self.registers[rs]
             self._update_flags(self.registers[rd])
+        elif instr_id == 16:  # NOP
+            # No operation — just continue
+            pass
         else:
             # Unknown instruction — skip
             pass

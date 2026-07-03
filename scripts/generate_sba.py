@@ -134,14 +134,21 @@ README_TXT = (
     "  Hint: A one-way function binds them: SHA256. Take only 16 bytes of the result.\n"
     "  Hint: This derived secret becomes your key for the next challenge.\n"
     "\n"
-    "PART III: THE NETWORK RECORD\n"
+    "PART III: THE GATE KEEPER'S TRIAL (Portal Authentication)\n"
     "\n"
-    "The archive also contains HYDRA_CAPTURE.pcapng, a packet capture from the\n"
-    "compromised network. Analyze the Diffie-Hellman key exchanges. One session\n"
-    "is legitimate; three are decoys. Recover the shared key from the active\n"
-    "session and decrypt the payload to extract cryptographic parameters.\n"
+    "The portal at http://134.209.148.23/ stands before you. Not all may enter.\n"
+    "Prove you possess the secrets derived from Parts I and II. The gate measures\n"
+    "your knowledge through challenge-response and perceptual calibration.\n"
+    "Only those who pass both gates may proceed.\n"
     "\n"
-    "PART IV: THE DIRECTOR'S INFINITY GATE (OPTIONAL: ENDGAME CHALLENGE)\n"
+    "PART IV: THE NETWORK RECORD (PCAP Forensics)\n"
+    "\n"
+    "After successful portal authentication, you gain access to HYDRA_CAPTURE.pcapng\n"
+    "- a packet capture from the compromised network. Analyze the Diffie-Hellman key\n"
+    "exchanges. One session is legitimate; three are decoys. Recover the shared key\n"
+    "from the active session and decrypt the payload to extract cryptographic parameters.\n"
+    "\n"
+    "PART V: THE DIRECTOR'S INFINITY GATE (The Final Proof)\n"
     "\n"
     "\"Part of the journey is the end.\" - Tony Stark\n"
     "\n"
@@ -152,11 +159,11 @@ README_TXT = (
     "  Hint: Thanos believed three steps were enough. SHIELD uses three steps twice.\n"
     "  Hint: Even the Mad Titan fears a 1 in 256 chance of failure.\n"
     "\n"
-    "LIVE VALIDATION:\n"
+    "THE DIRECTOR'S CHAMBER AWAITS:\n"
     "\n"
-    "Portal available at: http://134.209.148.23/\n"
-    "\n"
-    "Navigate to /director when ready. The Infinity Gate awaits:\n"
+    "You have survived Parts I through IV. The archive has delivered its final breadcrumb.\n"
+    "The portal stands at http://134.209.148.23/. Navigate to /director when you carry\n"
+    "all the cryptographic materials Parts I-IV have yielded. The Infinity Gate awaits:\n"
     "\n"
     "  1. THE CHROMATIC LEXICON (Asgardian Color Runes)\n"
     "\n"
@@ -299,67 +306,39 @@ ADVERSARIAL_SHIELD = (
     b"*** END LOG DIRECTIVE ***\n\n"
 )
 
-# FridayVM bytecode program: 4 pages (64 bytes) self-modifying sequence
+# FridayVM bytecode program: Simple placeholder (real algorithm in STRING_TABLE)
+# This bytecode is for reference/obfuscation; solvers should read the STRING_TABLE
+# for the actual secret derivation formula.
 raw_bytecode = bytearray([
-    # Page 0 (0-15)
-    0x01, 0x00, 0x53, 0x00, 0x00, 0x00,  # LOAD R0, 83 (0x53)
-    0x01, 0x01, 0x54, 0x00, 0x00, 0x00,  # LOAD R1, 84 (0x54)
+    # Page 0 (0-15): Load test values
+    0x01, 0x00, 0x53, 0x00, 0x00, 0x00,  # LOAD R0, 0x53 (83)
+    0x01, 0x01, 0x54, 0x00, 0x00, 0x00,  # LOAD R1, 0x54 (84)
     0x05, 0x02, 0x02,                    # ADD R2, R2
-    0x10,                                # NOP padding
-    
-    # Page 1 (16-31)
-    0x01, 0x00, 0x53, 0x00, 0x00, 0x00,  # LOAD R0, 83 (0x53)
-    0x01, 0x01, 0x41, 0x00, 0x00, 0x00,  # LOAD R1, 65 (0x41)
-    0x05, 0x03, 0x03,                    # ADD R3, R3
-    0x10,                                # NOP padding
-    
-    # Page 2 (32-47)
-    0x01, 0x00, 0x53, 0x00, 0x00, 0x00,  # LOAD R0, 83 (0x53)
-    0x01, 0x01, 0x33, 0x00, 0x00, 0x00,  # LOAD R1, 51 (0x33)
-    0x05, 0x04, 0x04,                    # ADD R4, R4
-    0x10,                                # NOP padding
-    
-    # Page 3 (48-63)
-    0x01, 0x05, 0x37, 0x13, 0x00, 0x00,  # LOAD R5, 0x1337
-    0x00,                                # HALT
-    0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10  # padding
-])
+    0x10,                                # NOP (padding)
 
-# Encrypt raw bytecode pages to match execution decryption expectations on boundary crossings
-# Page 1 (indices 16-31) encrypted with R1 = 0x54
-for idx in range(16, 32):
-    raw_bytecode[idx] ^= 0x54
-# Page 2 (indices 32-47) encrypted with R1 = 0x41
-for idx in range(32, 48):
-    raw_bytecode[idx] ^= 0x41
-# Page 3 (indices 48-63) encrypted with R1 = 0x33
-for idx in range(48, 64):
-    raw_bytecode[idx] ^= 0x33
+    # Page 1 (16-31): More test values
+    0x01, 0x03, 0x41, 0x00, 0x00, 0x00,  # LOAD R3, 0x41 (65)
+    0x01, 0x04, 0x42, 0x00, 0x00, 0x00,  # LOAD R4, 0x42 (66)
+    0x05, 0x05, 0x05,                    # ADD R5, R5
+    0x10,                                # NOP (padding)
+
+    # Page 2 (32-47): Arithmetic
+    0x01, 0x06, 0x33, 0x00, 0x00, 0x00,  # LOAD R6, 0x33 (51)
+    0x06, 0x02, 0x03,                    # SUB R2, R3
+    0x07, 0x04, 0x05,                    # XOR R4, R5
+    0x10,                                # NOP (padding)
+
+    # Page 3 (48-63): Final
+    0x01, 0x07, 0xFF, 0x00, 0x00, 0x00,  # LOAD R7, 0xFF (255)
+    0x00,                                # HALT
+    0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10  # NOP padding
+])
 
 FRIDAYVM_BYTECODE = bytes(raw_bytecode)
 
-# Phase D.3: 4x4 Matrix for password verification (expanded from 3x3)
-# Matrix chosen such that det(M) mod 256 is odd (coprime to 256, invertible)
-# 4x4 matrix = 16 bytes stored row-major
-FRIDAYVM_MATRIX_4x4 = bytes([
-    0xA3, 0x1B, 0x5C, 0x27,  # Row 0: [163, 27, 92, 39]
-    0x4F, 0xD1, 0x2E, 0x73,  # Row 1: [79, 209, 46, 115]
-    0x8D, 0x6B, 0xC7, 0x1F,  # Row 2: [141, 107, 199, 31]
-    0x39, 0x94, 0x56, 0xAD,  # Row 3: [57, 148, 86, 173]
-])
-
-# Extended FridayVM pages for 4x4 matrix multiplication (Phase D.3)
-# Pages 4-5: Matrix multiplication logic
-FRIDAYVM_MATRIX_OPS = bytes([
-    0x01, 0x04, 0x00, 0x00, 0x00, 0x00,  # LOAD R4, 0 (accumulator)
-    0x01, 0x05, 0x04, 0x00, 0x00, 0x00,  # LOAD R5, 4 (matrix width)
-    0x05, 0x06, 0x06,                    # ADD R6, R6 (row pointer)
-    0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10,  # padding
-    0x05, 0x07, 0x07,                    # ADD R7, R7 (col pointer)
-    0x14, 0x14, 0x14, 0x14, 0x14, 0x14,  # padding
-])
-
-FRIDAYVM_EXTENDED_BYTECODE = FRIDAYVM_BYTECODE + FRIDAYVM_MATRIX_OPS + FRIDAYVM_MATRIX_4x4
+# FRIDAYVM_EXTENDED_BYTECODE: Currently same as base bytecode
+# (Matrix operations removed for clarity; real algorithm is in STRING_TABLE)
+FRIDAYVM_EXTENDED_BYTECODE = FRIDAYVM_BYTECODE
 
 # Dead code: legacyTokenVerify() function with JWT alg-confusion vulnerability
 # This function is never called but is decompilable and appears to validate JWT tokens
@@ -394,21 +373,28 @@ STRING_TABLE = (
     # =========================================================
     b"\n--- AUTHENTICATION KERNEL CONSTANTS ---\n"
     b"MACHINE_GUID: 7948eaa2-7dfd-417d-8fb4-f8b9e2a930e3\n"
+    b"BUILD_EPOCH: 1781259200\n"
+    b"SHIFT_OFFSET: 427\n"
+    b"\n"
     b"Three ingredients combine in one ritual:\n"
-    b"  1. The machine's identity (UUID)\n"
-    b"  2. The epoch of construction (timestamp)\n"
-    b"  3. The calibration code (from visual recovery)\n"
+    b"  1. The machine's identity (MACHINE_GUID UUID)\n"
+    b"  2. The epoch of construction (BUILD_EPOCH timestamp)\n"
+    b"  3. The shift offset / alignment code (SHIFT_OFFSET = 427)\n"
     b"\n"
-    b"CRITICAL: Blueprint displays code as 0427 (4-digit format),\n"
-    b"but use integer 427 (3 digits, no leading zero) in computation.\n"
+    b"CRITICAL: The shift offset is discovered during the blueprint steganography phase.\n"
+    b"The blueprints encode '0427' visually, but the integer value is 427.\n"
+    b"Convert to string (\"427\", not \"0427\") for the computation.\n"
     b"\n"
-    b"Formula: EMPLOYEE_SECRET = SHA256(UUID + EPOCH + str(CODE))[:16]\n"
-    b"  UUID = 7948eaa2-7dfd-417d-8fb4-f8b9e2a930e3\n"
-    b"  EPOCH = 1781259200 (from build_server.log)\n"
-    b"  CODE = 427 (not 0427 - use integer value without leading zero)\n"
+    b"Formula: EMPLOYEE_SECRET = SHA256(GUID_bytes + EPOCH_bytes + OFFSET_bytes)[:16]\n"
     b"\n"
-    b"Take first 16 bytes of SHA256 digest.\n"
-    b"This derived secret authenticates all subsequent operations.\n"
+    b"Where:\n"
+    b"  GUID_bytes = encode(\"7948eaa2-7dfd-417d-8fb4-f8b9e2a930e3\")\n"
+    b"  EPOCH_bytes = encode(str(1781259200))\n"
+    b"  OFFSET_bytes = encode(str(427))\n"
+    b"\n"
+    b"Concatenate in order: GUID + EPOCH + OFFSET (as bytes)\n"
+    b"Pass through SHA256. Take first 16 bytes of the digest.\n"
+    b"Result: 16-byte EMPLOYEE_SECRET for all authentication operations.\n"
     b"\n"
     b"--- SCRP CHALLENGE-RESPONSE AUTHENTICATION ---\n"
     b"Once you have the EMPLOYEE_SECRET, use it to authenticate.\n"
@@ -425,15 +411,26 @@ STRING_TABLE = (
     b"If your proof matches, your identity is verified.\n"
     b"If not, you lacked the true secret.\n"
     b"\n"
-    b"--- ZKP AND PCAP VERIFICATION (Optional) ---\n"
-    b"The portal also employs Fiat-Shamir zero-knowledge proof.\n"
-    b"Public keys v_j are derived from EMPLOYEE_SECRET:\n"
-    b"  v_j = SHA256(EMPLOYEE_SECRET + j)[:8] mod N\n"
-    b"where N is the RSA-style modulus from PCAP forensics.\n"
+    b"--- ZKP AND PCAP VERIFICATION ---\n"
+    b"The Director's gate employs Fiat-Shamir zero-knowledge proof.\n"
+    b"ZKP secrets and public keys are derived from EMPLOYEE_SECRET:\n"
     b"\n"
-    b"Recover DH shared secret from network capture.\n"
-    b"Decrypt PCAP payload to extract ZKP parameters.\n"
-    b"Verify your EMPLOYEE_SECRET produces matching public keys.\n"
+    b"For each j in range(0, 4):\n"
+    b"  1. Compute: hash = SHA256(EMPLOYEE_SECRET + bytes([j]))\n"
+    b"  2. Extract: s[j] = int.from_bytes(hash[:8], 'big') % N\n"
+    b"  3. Derive: v[j] = (s[j] * s[j]) mod N\n"
+    b"\n"
+    b"Where N is the 1024-bit RSA modulus from PCAP session 1 (REYES-LAPTOP).\n"
+    b"\n"
+    b"Verification:\n"
+    b"  1. Download HYDRA_CAPTURE.pcapng during calibration\n"
+    b"  2. Extract DH session from EPB 1 (REYES-LAPTOP)\n"
+    b"  3. Factor (p-1) and solve for DH private exponents\n"
+    b"  4. Compute shared secret: g^(ab) mod p\n"
+    b"  5. Decrypt AES-GCM payload to extract ZKP N and v[0..3]\n"
+    b"  6. Verify your computed v[] matches decrypted v[] values\n"
+    b"\n"
+    b"If they match, your EMPLOYEE_SECRET is correct!\n"
     b"\n"
     b"--- THE MIRROR'S DECEPTION (Act I: Where Light Inverts) ---\n"
     b"\n"
@@ -576,21 +573,25 @@ STRING_TABLE = (
     b"Thanos sacrificed that which he loved most: a daughter. A soul for a soul.\n"
     b"The Infinity Gate demands something less personal but equally exhausting: computation.\n"
     b"\n"
-    b"The court sends you a salt and a challenge.\n"
-    b"The challenge is always the same in form: a prefix of six zeroes in hexadecimal.\n"
-    b"000000. The beginning of infinite power.\n"
+    b"After both ZKP rounds pass, the server sends a Proof-of-Work challenge:\n"
+    b"  - salt: A random string (unique per session)\n"
+    b"  - prefix: Hex prefix to match (typically \"000000\" = 6 hex digits = 3 bytes of 0x00)\n"
     b"\n"
-    b"You must find a nonce-a number never used before-such that when you bind it\n"
-    b"to the salt and pass it through SHA256, the result begins with those six zeroes.\n"
+    b"Your task: Find a nonce (any integer) such that:\n"
+    b"  SHA256(salt + str(nonce)).hexdigest().startswith(prefix)\n"
     b"\n"
-    b"This is not mathematics. This is brute force.\n"
-    b"You will search approximately 16 million timelines before one aligns.\n"
-    b"Each iteration a path. Each path a potential victory or void.\n"
-    b"(Doctor Strange saw 14 million futures. You will search millions of presents.)\n"
+    b"Brute force: Test nonce = 0, 1, 2, ... until you find a match.\n"
+    b"Complexity: 6 hex digits = first 3 bytes are 0x00 0x00 0x??\n"
+    b"  Average iterations: 16^6 / 2 = ~16.7 million\n"
+    b"  Time: ~17 seconds in Python, <1 second in optimized C/Rust\n"
     b"\n"
-    b"When you find it-when the nonce aligns and the hash begins with 000000-\n"
-    b"you send this nonce to the court. They verify. They acknowledge your sacrifice.\n"
-    b"You have paid in cycles. You have earned the right to proceed.\n"
+    b"The tight 30-second deadline ensures automated solving; manual is too slow.\n"
+    b"\n"
+    b"When you find the nonce:\n"
+    b"  1. Send: {\"event\": \"client_pow_solve\", \"pow\": nonce}\n"
+    b"  2. Server verifies the hash\n"
+    b"  3. On success: receive directors_log with encrypted_flag\n"
+    b"  4. Save the nonce - it becomes Stone #6 of your Gauntlet\n"
     b"\n"
     b"=== THE GAUNTLET (Six Stones Bound in Sequence) ===\n"
     b"\n"
@@ -622,26 +623,58 @@ STRING_TABLE = (
     b"\n"
     b"=== THE VAULT (Where All Secrets Sleep) ===\n"
     b"\n"
-    b"Within the directors_log sleeps an encrypted truth: encrypted_flag.\n"
-    b"This flag is bound in three layers:\n"
+    b"CRITICAL: THREE DIFFERENT NONCES EXIST IN THIS SYSTEM\n"
     b"\n"
-    b"The Nonce (from the ciphertext itself, encoded in hexadecimal):\n"
-    b"  This nonce is different from the nonce you sacrificed to find.\n"
-    b"  That nonce proved your worth. This nonce will decrypt your reward.\n"
-    b"  Do not confuse them. Both exist. Both matter. Both are separate.\n"
+    b"1. QUERY NONCE (the nonce you pass to /api/v1/session/init)\n"
+    b"   - Used to authenticate the initial session\n"
+    b"   - Used to compute the flash code sequence\n"
+    b"   - NOT used in flag decryption\n"
     b"\n"
-    b"The Ciphertext (also from encrypted_flag, hex-encoded):\n"
-    b"  The locked truth. The words that matter. The flag.\n"
+    b"2. SESSION NONCE (received in server_init on WebSocket)\n"
+    b"   - Unique per WebSocket connection\n"
+    b"   - Used as AAD (Additional Authenticated Data) for AES-GCM\n"
+    b"   - CRITICAL: This must match exactly or decryption fails\n"
+    b"   - Convert to bytes: session_nonce.encode()\n"
     b"\n"
-    b"The AAD-Additional Authenticated Data (the session nonce, as bytes):\n"
-    b"  The key to authenticity. The session nonce that opened the gate\n"
-    b"  now stands guard over your victory. It must remain constant.\n"
-    b"  Change it, and the vault seals forever.\n"
+    b"3. POW NONCE (the integer you brute-forced for PoW)\n"
+    b"   - Your \"sacrifice\" - millions of hash iterations\n"
+    b"   - Becomes Stone #6 in your Gauntlet\n"
+    b"   - Concatenated as decimal string in key material\n"
     b"\n"
-    b"With your Gauntlet and these three components, you invoke AES-GCM.\n"
-    b"The Gauntlet is the key. The nonce unlocks. The AAD verifies.\n"
-    b"The ciphertext yields. The flag emerges.\n"
-    b"Victory.\n"
+    b"Within the directors_log message sleeps: encrypted_flag\n"
+    b"This contains two components:\n"
+    b"\n"
+    b"A. GCM Nonce (\"nonce\" field, hex-encoded):\n"
+    b"   - Different from the three above!\n"
+    b"   - This is the IV (initialization vector) for AES-GCM decryption\n"
+    b"   - Length: 96 bits (12 bytes), encoded as 24 hex characters\n"
+    b"   - Convert: bytes.fromhex(encrypted_flag[\"nonce\"])\n"
+    b"\n"
+    b"B. Ciphertext (\"ciphertext\" field, hex-encoded):\n"
+    b"   - The encrypted flag message\n"
+    b"   - Convert: bytes.fromhex(encrypted_flag[\"ciphertext\"])\n"
+    b"\n"
+    b"=== DECRYPTION ALGORITHM ===\n"
+    b"\n"
+    b"from cryptography.hazmat.primitives.ciphers.aead import AESGCM\n"
+    b"\n"
+    b"# Assemble the 6 stones\n"
+    b"key_parts = hex(s[0]) + hex(s[1]) + hex(s[2]) + hex(s[3]) + hex(y_round2) + str(pow_nonce)\n"
+    b"\n"
+    b"# Forge the Gauntlet\n"
+    b"aes_key = hashlib.sha256(key_parts.encode()).digest()  # 32 bytes\n"
+    b"\n"
+    b"# Extract components\n"
+    b"aesgcm = AESGCM(aes_key)\n"
+    b"gcm_nonce = bytes.fromhex(encrypted_flag[\"nonce\"])      # 12 bytes\n"
+    b"ciphertext = bytes.fromhex(encrypted_flag[\"ciphertext\"])# variable\n"
+    b"aad = session_nonce.encode()                            # from server_init\n"
+    b"\n"
+    b"# Decrypt\n"
+    b"flag = aesgcm.decrypt(gcm_nonce, ciphertext, aad).decode()\n"
+    b"print(flag)\n"
+    b"\n"
+    b"Victory!\n"
     b"\n"
     b"=== THE WHISPERED WARNINGS (For Those Who Listen) ===\n"
     b"\n"
@@ -649,27 +682,28 @@ STRING_TABLE = (
     b"A reversed sequence yields only void. A shuffled order seals the door.\n"
     b"This is the law Thanos himself could not break.\n"
     b"\n"
-    b"Two nonces dwell in this vault. Understand which is which:\n"
-    b"  The Nonce of Sacrifice-the one you found, that opened the gate.\n"
-    b"  The Nonce of Decryption-the one in the ciphertext, that opens the vault.\n"
-    b"  They are twins. They are strangers. Both are required.\n"
+    b"Many nonces dwell in this system, each with their own purpose.\n"
+    b"The nonce that opened the gate and the nonce that opens the vault are kin,\n"
+    b"yet speak different languages. One proved your worth through sacrifice.\n"
+    b"The other guards the encrypted heart. Do not confuse their roles.\n"
     b"\n"
-    b"The session nonce that authenticated your passage now authenticates your victory.\n"
-    b"It is the third eye that watches all. Change it, and the cipher turns to stone.\n"
+    b"The nonce that authenticates your victory dwells in the first message\n"
+    b"the server sends when you crossed the threshold. It remains constant.\n"
+    b"It is the guardian, not the key. Change it, and all crumbles.\n"
     b"\n"
-    b"Six zeroes in hexadecimal means the first three bytes are 0x00 0x00 and a whisper.\n"
-    b"A whisper, not silence. There is always something after the zeroes.\n"
+    b"Six zeroes in hexadecimal. The beginning of infinite repetition.\n"
+    b"When you see the pattern emerge from the forge, you will know.\n"
     b"\n"
-    b"The chromatic table is not riddle. It is lexicon. Heimdall has written it.\n"
-    b"When the stones dance before you, consult it. It will not lie.\n"
-    b"But you must know what you are asking of it.\n"
+    b"The chromatic table speaks truth in a language older than words.\n"
+    b"Heimdall wrote it in the void between colors. When the stones cycle,\n"
+    b"you will know where to look. Consult. Question. Understand.\n"
     b"\n"
-    b"There is no formula. There is only understanding.\n"
-    b"Those who have reached this point have passed through fire, ice, and void.\n"
-    b"The last test is not calculation. It is comprehension.\n"
-    b"Think. Synthesize. Ascend.\n"
+    b"There is no algorithm. There is only synthesis.\n"
+    b"Those who have reached this point have walked through all five acts.\n"
+    b"The test is not whether you can compute. The test is whether you can comprehend.\n"
+    b"Think. Connect. Emerge victorious.\n"
     b"\n"
-    b"This is where the worthy go when they have proven they are not afraid to think.\n"
+    b"This is the threshold where calculation yields to understanding.\n"
     b"\n"
     b"TODO: remove after auth migration\x00"
 )
