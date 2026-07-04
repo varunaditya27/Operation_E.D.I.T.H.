@@ -399,6 +399,7 @@ export default function DirectorTerminal() {
           addLog("TO RETURN TO THE GATE:");
           addLog("  • The chamber remembers nothing. You must begin again.");
           addLog("  • Descend from the Director's throne to the Dashboard.");
+          addLog("  • Reclaim the HYDRA capture anew — a fresh artifact token is forged with each retrieval.");
           addLog("  • Ascend once more. Request a new nonce ('init').");
           addLog("  • Watch the stones cycle anew. Transcribe their sequence.");
           addLog("  • Reconnect with fresh eyes ('connect').");

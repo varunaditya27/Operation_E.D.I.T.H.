@@ -466,9 +466,13 @@ async def admin_auth_ws(websocket: WebSocket):
     2-round protocol reduces soundness error from 1/16 to 1/256 and increases
     the number of WebSocket state transitions a solver must handle correctly.
     """
-    # Validate PCAP token (sequential gating — Phase D.2)
+    # NOTE: Validate the cheap perceptual gates (flash code + nonce) BEFORE
+    # consuming the one-time PCAP token. Otherwise a transcription typo burns
+    # the single-use token, and the prescribed "begin again" recovery loop
+    # (re-init → new nonce → reconnect) fails forever because it reuses the
+    # already-spent token. Only consume the token once every other gate passes.
     pcap_token = websocket.query_params.get("pcap_token", "")
-    if not pcap_token or not database.validate_and_consume_pcap_token(pcap_token):
+    if not pcap_token:
         await websocket.close(code=4003, reason="PCAP artifact authorization required")
         return
 
@@ -486,6 +490,12 @@ async def admin_auth_ws(websocket: WebSocket):
 
     if flash_code_input != expected_code:
         await websocket.close(code=4003, reason="Flash code verification failed")
+        return
+
+    # All perceptual gates passed — now consume the one-time PCAP token
+    # (sequential gating — Phase D.2).
+    if not database.validate_and_consume_pcap_token(pcap_token):
+        await websocket.close(code=4003, reason="PCAP artifact authorization required")
         return
 
     await websocket.accept()
