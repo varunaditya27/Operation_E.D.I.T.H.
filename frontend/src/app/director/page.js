@@ -23,6 +23,20 @@ const playTone = (freq, duration, type = "sine", volume = 0.04) => {
   } catch (e) {}
 };
 
+const FLASH_COLOR_STYLES = {
+  R: "bg-red-500 shadow-[0_0_24px_rgba(239,68,68,0.75)] border-red-300",
+  G: "bg-emerald-400 shadow-[0_0_24px_rgba(52,211,153,0.75)] border-emerald-200",
+  B: "bg-sky-400 shadow-[0_0_24px_rgba(56,189,248,0.75)] border-sky-200",
+  Y: "bg-yellow-300 shadow-[0_0_24px_rgba(253,224,71,0.75)] border-yellow-100",
+};
+
+const FLASH_COLOR_NAMES = {
+  R: "RED",
+  G: "GREEN",
+  B: "BLUE",
+  Y: "YELLOW",
+};
+
 export default function DirectorTerminal() {
   const { isExpired: sessionExpired, checked: sessionChecked } = useSessionValidator();
   const router = useRouter();
@@ -484,6 +498,49 @@ export default function DirectorTerminal() {
 
         {/* Info panel + Captcha (Colspan 4) */}
         <section className="lg:col-span-4 flex flex-col gap-6">
+          {/* Flash Code Box */}
+          <div className="stark-panel-red p-5 hud-crosshair hud-crosshair-tl hud-crosshair-tr hud-crosshair-bl hud-crosshair-br flex flex-col items-center justify-center min-h-[200px]">
+            <h3 className="text-header text-[10px] text-red-500 font-black border-b border-red-500/20 pb-2 mb-4 w-full text-center tracking-widest">
+              FLASH CODE TRANSCRIPTION
+            </h3>
+            {flashSequence.length > 0 ? (
+              <div className="w-full flex flex-col items-center gap-4">
+                <div
+                  className={`h-20 w-20 rounded-full border-4 transition-colors duration-300 ${
+                    FLASH_COLOR_STYLES[flashIndicatorColor] || "bg-slate-700 border-slate-500"
+                  }`}
+                  aria-label={`Current flash color ${FLASH_COLOR_NAMES[flashIndicatorColor] || "unknown"}`}
+                />
+                <div className="w-full grid grid-cols-4 gap-2">
+                  {flashSequence.map((color, idx) => (
+                    <div
+                      key={`${color}-${idx}`}
+                      className={`h-8 rounded border text-[10px] font-mono font-black flex items-center justify-center ${
+                        FLASH_COLOR_STYLES[color] || "bg-slate-800 border-slate-600"
+                      }`}
+                    >
+                      {idx + 1}
+                    </div>
+                  ))}
+                </div>
+                <input
+                  type="text"
+                  value={flashCodeInput}
+                  onChange={(e) => setFlashCodeInput(e.target.value.toUpperCase().slice(0, 2))}
+                  placeholder="2-CHAR CODE"
+                  className="w-full bg-black/90 border border-red-500/30 rounded px-3 py-2 text-center text-red-300 font-mono text-sm font-black tracking-[0.35em] outline-none focus:border-cyan-400"
+                  aria-label="Flash code"
+                />
+              </div>
+            ) : (
+              <div className="text-slate-600 font-mono text-xs text-center leading-relaxed">
+                [NO FLASH SEQUENCE ACTIVE]
+                <br />
+                Run init to register
+              </div>
+            )}
+          </div>
+
           {/* Captcha Box */}
           <div className="stark-panel-red p-5 hud-crosshair hud-crosshair-tl hud-crosshair-tr hud-crosshair-bl hud-crosshair-br flex flex-col items-center justify-center min-h-[240px]">
             <h3 className="text-header text-[10px] text-red-500 font-black border-b border-red-500/20 pb-2 mb-4 w-full text-center tracking-widest">
